@@ -430,7 +430,7 @@ def resnet_conv_2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0
                 x,
                 out_size,
                 kernel_size=1,
-                use_bias=False,b
+                use_bias=False,
                 kernel_initializer=initializer,
                 strides=strides,
                 dilation_rate=dilation_rate,
@@ -575,7 +575,7 @@ def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, ini
                 x,
                 out_size,
                 kernel_size=1,
-                use_bias=False,b
+                use_bias=False,
                 kernel_initializer=initializer,
                 strides=strides,
                 dilation_rate=dilation_rate,
@@ -605,7 +605,7 @@ def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, ini
                     'Variable_scope: {}\n'.format(vscope.name),
                     'Kernel size: {}\n'.format(k_size),
                     'Output filters: {}\n'.format(out_size),
-                    'Probability of skipping layer: {}\n'.format(1-keep_prob),
+                    'Probability of skipping layer: {}\n'.format(1 - keep_prob),
                     'Strides: {}\n'.format(strides),
                     'Dilation rate: {}\n'.format(dilation_rate),
                     'Padding: SAME\n',
