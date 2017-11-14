@@ -3,6 +3,7 @@ import numpy as np
 import activations
 import regularizers
 
+
 _ver = [int(v) for v in tf.__version__.split('.')]
 keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
 
