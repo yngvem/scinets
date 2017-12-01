@@ -125,6 +125,18 @@ def _generate_regularizer(regularizer, generate_string=False):
     return (reg_func, reg_str) if generate_string else reg_func
 
 
+def _get_returns(scope):
+    """Get the parameters to return from a layer
+    """
+    trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope.name)
+    params = {
+        '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
+    }
+    reg_list = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope=scope.name)
+
+    return params.reg_list
+
+
 def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, regularizer=None,
              batch_norm=False, is_training=None, activation='linear', scope='fc', verbose=False,
              **kwargs):
@@ -168,6 +180,9 @@ def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, regularizer=
         Dictionary with one or two keys;
           - 'W': The weight tensor
           - 'b': The bias tensor (does not exist if `bias` is False).
+    reg_list : list
+        List containing all the regularization operators for this layer. Should be added to loss
+        during training.
 
     Raises:
     -------
@@ -192,10 +207,7 @@ def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, regularizer=
             out = activation(out)
 
         # Get variables
-        trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vscope.name)
-        params = {
-            '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
-        }
+        params, reg_list = _get_returns(vscope)
 
         if verbose:
             print(
@@ -206,6 +218,7 @@ def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, regularizer=
                 'Kernel initialisation: {}\n'.format(init_str),
                 'Activation function: {}\n'.format(act_str),
                 'Kernel regularisation: {}\n'.format(reg_str),
+                'Number of regularizer loss: {}'.format(len(reg_list),
                 'Use bias: {}\n'.format(use_bias),
                 'Use batch normalization: {}\n'.format(batch_norm),
                 'Input shape: {}\n'.format(x.get_shape().as_list()),
@@ -214,7 +227,7 @@ def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, regularizer=
             print(' Parameter shapes:')
             for pname, param in params.items():
                 print('  {}: {}'.format(pname, param.get_shape().as_list()))
-        return out, params
+        return out, params, reg_list
 
 
 def conv2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0.1, regularizer=None,
@@ -272,6 +285,9 @@ def conv2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0.1, regu
         Dictionary with one or two keys;
           - 'W': The weight tensor
           - 'b': The bias tensor (does not exist if `bias` is False).
+    reg_list : list
+        List containing all the regularization operators for this layer. Should be added to loss
+        during training.
 
     Raises:
     -------
@@ -304,10 +320,7 @@ def conv2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0.1, regu
             out = activation(out)
 
         # Get variables
-        trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vscope.name)
-        params = {
-            '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
-        }
+        params, reg_list = _get_returns(vscope)
 
         if verbose:
             print(
@@ -322,6 +335,7 @@ def conv2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0.1, regu
                 'Kernel initialisation: {}\n'.format(init_str),
                 'Activation function: {}\n'.format(act_str),
                 'Kernel regularisation: {}\n'.format(reg_str),
+                'Number of regularizer loss: {}'.format(len(reg_list),
                 'Use bias: {}\n'.format(use_bias),
                 'Use batch normalization: {}\n'.format(batch_norm),
                 'Input shape: {}\n'.format(x.get_shape().as_list()),
@@ -331,7 +345,7 @@ def conv2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0.1, regu
             for pname, param in params.items():
                 print('  {}: {}'.format(pname, param.get_shape().as_list()))
 
-        return out, params
+        return out, params, reg_list
 
 
 def resnet_conv_2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0.1, regularizer=None,
@@ -382,6 +396,10 @@ def resnet_conv_2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0
         Dictionary with one or two keys;
           - 'W': The weight tensor
           - 'b': The bias tensor (does not exist if `bias` is False).
+    reg_list : list
+        List containing all the regularization operators for this layer. Should be added to loss
+        during training.
+
 
     Raises:
     -------
@@ -444,10 +462,7 @@ def resnet_conv_2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0
             out = skip + out1
 
             # Get variables
-            trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vscope.name)
-            params = {
-                '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
-            }
+            params, reg_list = _get_returns(vscope)
 
             if verbose:
                 print(
@@ -462,6 +477,7 @@ def resnet_conv_2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0
                     'Kernel initialisation: {}\n'.format(init_str),
                     'Activation function: {}\n'.format(act_str),
                     'Kernel regularisation: {}\n'.format(reg_str),
+                    'Number of regularizer loss: {}'.format(len(reg_list),
                     'Use bias: {}\n'.format(use_bias),
                     'Use batch normalization: True\n',
                     'Input shape: {}\n'.format(x.get_shape().as_list()),
@@ -470,7 +486,7 @@ def resnet_conv_2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0
                 print(' Parameter shapes:')
                 for pname, param in params.items():
                     print('  {}: {}'.format(pname, param.get_shape().as_list()))
-    return out, params
+    return out, params, reg_list
 
 
 def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, initializer='he',
@@ -527,6 +543,9 @@ def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, ini
         Dictionary with one or two keys;
           - 'W': The weight tensor
           - 'b': The bias tensor (does not exist if `bias` is False).
+    reg_list : list
+        List containing all the regularization operators for this layer. Should be added to loss
+        during training.
 
     Raises:
     -------
@@ -594,10 +613,7 @@ def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, ini
             )
 
             # Get variables
-            trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vscope.name)
-            params = {
-                '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
-            }
+            params, reg_list = _get_returns(vscope)
 
             if verbose:
                 print(
@@ -611,6 +627,7 @@ def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, ini
                     'Dilation rate: {}\n'.format(dilation_rate),
                     'Padding: SAME\n',
                     'Kernel initialisation: {}\n'.format(init_str),
+                    'Number of regularizer loss: {}'.format(len(reg_list),
                     'Activation function: {}\n'.format(act_str),
                     'Kernel regularisation: {}\n'.format(reg_str),
                     'Use bias: {}\n'.format(use_bias),
@@ -621,7 +638,7 @@ def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, ini
                 print(' Parameter shapes:')
                 for pname, param in params.items():
                     print('  {}: {}'.format(pname, param.get_shape().as_list()))
-    return out, params
+    return out, params, reg_list
 
 
 def learned_avg_pool(x, pool_size=2, strides=2, initializer='he', std=0.1, regularizer=None,
@@ -668,6 +685,9 @@ def learned_avg_pool(x, pool_size=2, strides=2, initializer='he', std=0.1, regul
         Dictionary with one or two keys;
           - 'W': The weight tensor
           - 'b': The bias tensor (does not exist if `bias` is False).
+    reg_list : list
+        List containing all the regularization operators for this layer. Should be added to loss
+        during training.
 
     Raises:
     -------
@@ -699,10 +719,7 @@ def learned_avg_pool(x, pool_size=2, strides=2, initializer='he', std=0.1, regul
             out = activation(out)
 
         # Get variables
-        trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=vscope.name)
-        params = {
-            '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
-        }
+        params, reg_list = _get_returns(vscope)
 
         if verbose:
             print(
@@ -723,4 +740,4 @@ def learned_avg_pool(x, pool_size=2, strides=2, initializer='he', std=0.1, regul
             for pname, param in params.items():
                 print('  {}: {}'.format(pname, param.get_shape().as_list()))
 
-        return out, params
+        return out, params, reg_list
