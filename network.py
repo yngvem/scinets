@@ -1,34 +1,139 @@
 import tensorflow as tf
 import layers
+import losses
+import optimizers
+
+class EmptyNet:
+    """Container for all properties of NeuralNet classes
+    """
+    @property
+    def input(self):
+        return self._input
+
+    @property
+    def architecture(self):
+        return self._architecture
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @property
+    def is_training(self):
+        return self._is_training
+
+    @property
+    def layer_outs(self):
+        return self._layer_outs
+
+    @property
+    def params(self):
+        return self._params
+
+    @property
+    def reg_lists(self):
+        return self._reg_lists
+
+    @property
+    def reg_op(self):
+        return self._reg_op
+
+    @property
+    def out(self):
+        return self_out
+
+    @property
+    def true_out(self):
+        return self._true_out
+
+    @property
+    def loss(self):
+        return self._loss
+
+    @property
+    def optimizer(self):
+        return self._optimizer
+
+    @property
+    def train_step(self):
+        return self._train_step
 
 
-class NeuralNet:
-    def __init__(self, x, architecture, is_training=None, verbose=False):
-        self.input = x
-        self.architecture = architecture
-        self.verbose = verbose
-        self.is_training = tf.placeholder(tf.bool, []) if is_training is None else is_training
+class NeuralNet(EmptyNet):
+    def __init__(self, x, architecture, name=None, is_training=None, verbose=False):
+        """
+        Create a standard feed-forward net.
 
-        self.layer_outs, self.params = self.assemble_network()
-        self.out = self.layer_outs[-1]
+        Parameters
+        ----------
+        x : tf.Variable
+            The input variable to the network
+        architecture : array_like
+            An array of dictionaries. The first dictionary specifies the parameters of the
+            first layer, the second dictionary specifies the parameters of the second layer
+            and so on.
+        is_training : tf.placeholder(bool, [])
+            Variable used to specify wether the net is training or not. For example used in
+            batch normalisation and stochastic depth.
+        verbose : bool
+            Used to specify if information about the networkshould be printed to the
+            terminal window.
+        """
+        self._input = x
+        self._architecture = architecture
+        self._verbose = verbose
+        self._is_training = tf.placeholder(tf.bool, []) if is_training is None else is_training
+
+        self._layer_outs, self._params, self._reg_lists, self._reg_op = self.assemble_network()
+        self._out = self.layer_outs[-1]
+
+    def set_loss(self, true_output, loss_function, true_name='labels', predicted_name='logits',
+                 **kwargs):
+        self._true_out = true_out
+        loss_func = getattr(losses, loss_function)
+        self._loss = tf.reduce_mean(loss_func(
+            self.out,
+            self.true_out
+        ) + self.reg_op
+
+    def set_train_op(self, train_op, **kwargs):
+        if self.loss_function is None:
+            raise RuntimeError(
+            'The layer\'s `set_loss` function must be runned before setting training operator.')
+
+        Optimizer = getattr(optimizers, train_op)
+        self._optimizer = Optimizer(**kwargs)
+        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+            self._train_step = optimizer.minimize(loss)
 
     def assemble_network(self):
         out = self.input
         outs = [self.input]
         params = {}
-        for layer in self.architecture:
-            out, _params = getattr(layers, layer['layer'])(
-                out,
-                is_training=self.is_training,
-                verbose=self.verbose,
-                **layer
-            )
-            outs.append(out)
+        reg_lists = {}
+        with tf.variable_scope(self.name):
+            for layer in self.architecture:
+                if 'regularizer' in architecture:
+                    raise RuntimeWarning('Regularization not implemented yet.')
 
-            for pname, param in _params.items():
-                params[layer['scope'] + '/' + pname] = param
+                out, _params, _reg_lists = getattr(layers, layer['layer'])(
+                    out,
+                    is_training=self.is_training,
+                    verbose=self.verbose,
+                    **layer
+                )
+                outs.append(out)
 
-        return outs, params
+                for pname, param in _params.items():
+                    params[layer['scope'] + '/' + pname] = param
+                reg_lists[layer['scope']] = _reg_lists
+
+        reg_list = []
+        for regs in reg_lists.values():
+            reg_list += regs
+
+        reg_op = tf.add_n(reg_list)
+        return outs, params, reg_lists, reg_op
 
 
 if __name__ == '__main__':
