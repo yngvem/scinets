@@ -134,7 +134,7 @@ def _get_returns(scope):
     }
     reg_list = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, scope=scope.name)
 
-    return params.reg_list
+    return params, reg_list
 
 
 def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, regularizer=None,
@@ -218,7 +218,7 @@ def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, regularizer=
                 'Kernel initialisation: {}\n'.format(init_str),
                 'Activation function: {}\n'.format(act_str),
                 'Kernel regularisation: {}\n'.format(reg_str),
-                'Number of regularizer loss: {}'.format(len(reg_list),
+                'Number of regularizer loss: {}'.format(len(reg_list)),
                 'Use bias: {}\n'.format(use_bias),
                 'Use batch normalization: {}\n'.format(batch_norm),
                 'Input shape: {}\n'.format(x.get_shape().as_list()),
@@ -335,7 +335,7 @@ def conv2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0.1, regu
                 'Kernel initialisation: {}\n'.format(init_str),
                 'Activation function: {}\n'.format(act_str),
                 'Kernel regularisation: {}\n'.format(reg_str),
-                'Number of regularizer loss: {}'.format(len(reg_list),
+                'Number of regularizer loss: {}'.format(len(reg_list)),
                 'Use bias: {}\n'.format(use_bias),
                 'Use batch normalization: {}\n'.format(batch_norm),
                 'Input shape: {}\n'.format(x.get_shape().as_list()),
@@ -477,7 +477,7 @@ def resnet_conv_2d(x, out_size, k_size=3, use_bias=True, initializer='he', std=0
                     'Kernel initialisation: {}\n'.format(init_str),
                     'Activation function: {}\n'.format(act_str),
                     'Kernel regularisation: {}\n'.format(reg_str),
-                    'Number of regularizer loss: {}'.format(len(reg_list),
+                    'Number of regularizer loss: {}'.format(len(reg_list)),
                     'Use bias: {}\n'.format(use_bias),
                     'Use batch normalization: True\n',
                     'Input shape: {}\n'.format(x.get_shape().as_list()),
@@ -627,7 +627,7 @@ def stochastic_depth_2d(x, out_size, k_size=3, keep_prob=0.5, use_bias=True, ini
                     'Dilation rate: {}\n'.format(dilation_rate),
                     'Padding: SAME\n',
                     'Kernel initialisation: {}\n'.format(init_str),
-                    'Number of regularizer loss: {}'.format(len(reg_list),
+                    'Number of regularizer loss: {}'.format(len(reg_list)),
                     'Activation function: {}\n'.format(act_str),
                     'Kernel regularisation: {}\n'.format(reg_str),
                     'Use bias: {}\n'.format(use_bias),

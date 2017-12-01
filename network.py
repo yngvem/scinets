@@ -7,6 +7,10 @@ class EmptyNet:
     """Container for all properties of NeuralNet classes
     """
     @property
+    def name(self):
+        return self._name
+
+    @property
     def input(self):
         return self._input
 
@@ -40,7 +44,7 @@ class EmptyNet:
 
     @property
     def out(self):
-        return self_out
+        return self._out
 
     @property
     def true_out(self):
@@ -83,18 +87,19 @@ class NeuralNet(EmptyNet):
         self._architecture = architecture
         self._verbose = verbose
         self._is_training = tf.placeholder(tf.bool, []) if is_training is None else is_training
+        self._name = name
 
         self._layer_outs, self._params, self._reg_lists, self._reg_op = self.assemble_network()
         self._out = self.layer_outs[-1]
 
     def set_loss(self, true_output, loss_function, true_name='labels', predicted_name='logits',
                  **kwargs):
-        self._true_out = true_out
+        self._true_out = true_output
         loss_func = getattr(losses, loss_function)
         self._loss = tf.reduce_mean(loss_func(
             self.out,
             self.true_out
-        ) + self.reg_op
+        )) + self.reg_op
 
     def set_train_op(self, train_op, **kwargs):
         if self.loss_function is None:
@@ -132,7 +137,7 @@ class NeuralNet(EmptyNet):
         for regs in reg_lists.values():
             reg_list += regs
 
-        reg_op = tf.add_n(reg_list)
+        reg_op = tf.add_n(reg_list) if len(reg_list) > 0 else 0
         return outs, params, reg_lists, reg_op
 
 
@@ -181,7 +186,7 @@ if __name__ == '__main__':
             }
     ]
 
-    network = NeuralNet(x, architecture, verbose=True)
+    network = NeuralNet(x, architecture, verbose=True, name='TestN')
     y = network.out
     is_training = network.is_training
 
