@@ -1,7 +1,7 @@
 import tensorflow as tf
 
 
-def weight_decay(x, amount=1, name='weight_decay'):
+def weight_decay(x, amount=1, name='weight_decay', **kwargs):
     """Weight decay regularisation.
 
     Arguments
@@ -13,4 +13,4 @@ def weight_decay(x, amount=1, name='weight_decay'):
     name : str
         The name of the regularisation parameter
     """
-    return amount*tf.pow(x, 2, name=name)
+    return amount*tf.pow(x, 2, name=name)/tf.reduce_sum(x)

@@ -1,3 +1,5 @@
+# TODO: Check regularization!
+
 import tensorflow as tf
 import layers
 import losses
@@ -6,6 +8,22 @@ import optimizers
 class EmptyNet:
     """Container for all properties of NeuralNet classes
     """
+    def __init__(self):
+        self._name = None
+        self._input = None
+        self._architecture = None
+        self._verbose = None
+        self._is_training = None
+        self._layer_outs = None
+        self._params = None
+        self._reg_lists = None
+        self._reg_op = None
+        self._out = None
+        self._true_out = None
+        self._loss = None
+        self._optimizer = None
+        self._train_step = None
+
     @property
     def name(self):
         return self._name
@@ -64,7 +82,8 @@ class EmptyNet:
 
 
 class NeuralNet(EmptyNet):
-    def __init__(self, x, architecture, name=None, is_training=None, verbose=False):
+    def __init__(self, x, architecture, name=None, is_training=None,
+                 verbose=False):
         """
         Create a standard feed-forward net.
 
@@ -73,27 +92,32 @@ class NeuralNet(EmptyNet):
         x : tf.Variable
             The input variable to the network
         architecture : array_like
-            An array of dictionaries. The first dictionary specifies the parameters of the
-            first layer, the second dictionary specifies the parameters of the second layer
-            and so on.
+            An array of dictionaries. The first dictionary specifies the 
+            parameters of the first layer, the second dictionary specifies the 
+            parameters of the second layer and so on.
         is_training : tf.placeholder(bool, [])
-            Variable used to specify wether the net is training or not. For example used in
-            batch normalisation and stochastic depth.
+            Variable used to specify wether the net is training or not. For 
+            example used in batch normalisation and stochastic depth.
         verbose : bool
-            Used to specify if information about the networkshould be printed to the
-            terminal window.
+            Used to specify if information about the networkshould be printed to
+            the terminal window.
         """
         self._input = x
         self._architecture = architecture
         self._verbose = verbose
-        self._is_training = tf.placeholder(tf.bool, []) if is_training is None else is_training
+        if is_training is None:
+            self._is_training = tf.placeholder(tf.bool, [])
         self._name = name
 
-        self._layer_outs, self._params, self._reg_lists, self._reg_op = self.assemble_network()
+        l, p, rl, ro = self.assemble_network()
+        self._layer_outs, self._params = l, p
+        self._reg_lists, self._reg_op = rl, ro
+
+        self._loss = None
         self._out = self.layer_outs[-1]
 
-    def set_loss(self, true_output, loss_function, true_name='labels', predicted_name='logits',
-                 **kwargs):
+    def set_loss(self, true_output, loss_function, true_name='labels', 
+                 predicted_name='logits', **kwargs):
         self._true_out = true_output
         loss_func = getattr(losses, loss_function)
         self._loss = tf.reduce_mean(loss_func(
@@ -102,13 +126,16 @@ class NeuralNet(EmptyNet):
         )) + self.reg_op
 
     def set_train_op(self, train_op, **kwargs):
-        if self.loss_function is None:
+        if self.loss is None:
             raise RuntimeError(
-            'The layer\'s `set_loss` function must be runned before setting training operator.')
+                'The `set_loss` function must be ran before `set_train`.'
+            )
 
         Optimizer = getattr(optimizers, train_op)
         self._optimizer = Optimizer(**kwargs)
-        with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
+
+        UPDATE_OPS = tf.GraphKeys.UPDATE_OPS
+        with tf.control_dependencies(tf.get_collection(UPDATE_OPS)):
             self._train_step = optimizer.minimize(loss)
 
     def assemble_network(self):
@@ -118,10 +145,8 @@ class NeuralNet(EmptyNet):
         reg_lists = {}
         with tf.variable_scope(self.name):
             for layer in self.architecture:
-                if 'regularizer' in architecture:
-                    raise RuntimeWarning('Regularization not implemented yet.')
-
-                out, _params, _reg_lists = getattr(layers, layer['layer'])(
+                layer_func = getattr(layers, layer['layer'])
+                out, _params, _reg_lists = layer_func(
                     out,
                     is_training=self.is_training,
                     verbose=self.verbose,
@@ -141,6 +166,7 @@ class NeuralNet(EmptyNet):
         return outs, params, reg_lists, reg_op
 
 
+
 if __name__ == '__main__':
     from tensorflow.examples.tutorials.mnist import input_data
     mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
@@ -158,6 +184,13 @@ if __name__ == '__main__':
                 'k_size': 5,
                 'batch_norm': True,
                 'activation': 'relu',
+                'regularizer': {
+                    'function': 'weight_decay',
+                    'arguments': {
+                        'amount': 0.5,
+                        'name': 'weight_decay'
+                    }
+                }
             },
             {
                 'layer': 'conv2d',
@@ -200,6 +233,7 @@ if __name__ == '__main__':
         train_step = optimizer.minimize(loss)
 
     with tf.Session() as sess:
+
         batch = mnist.train.next_batch(100)
         sess.run(tf.global_variables_initializer())
         for i in range(2000):
@@ -208,7 +242,10 @@ if __name__ == '__main__':
               train_accuracy = accuracy.eval(feed_dict={
                   _x: batch[0], y_: batch[1], is_training: False})
               print('step %d, training accuracy %g' % (i, train_accuracy))
+
             train_step.run(feed_dict={_x: batch[0], y_: batch[1], is_training: True})
 
         print('test accuracy %g' % accuracy.eval(feed_dict={
           _x: mnist.test.images, y_: mnist.test.labels, is_training: False}))
+        
+        
