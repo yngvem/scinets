@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+import numpy as np
 
 def log_variable(var, log_mean=True, log_stddev=True, log_max=True, log_min=True, 
                  log_histogram=True, var_name=None):
@@ -20,6 +20,21 @@ def log_variable(var, log_mean=True, log_stddev=True, log_max=True, log_min=True
         if log_hist:
             summaries.append(tf.summary.histogram('histogram', var))
     return summaries
+
+
+def log_sparsity(var, axis=None, name=None):
+    """Creates a summary with the precentage of zero-valued indices in a tensor.
+    """
+    shape = var.get_shape().as_list()
+    num_total = np.prod(shape[:axis] + shape[axis+1:])
+    for i, n in enumerate(shape):
+        num_total += n if i != axis else 0
+    
+    nonzero = tf.count_nonzero(var, axis)
+    sparsity = 1-nonzero/num_total
+    with tf.variable_scope('summaries' + name if type(name) == str else ''):
+        return tf.summary.histogram(sparsity)
+    
 
 
 def log_dict(var_dict, name=None):
@@ -48,7 +63,7 @@ def log_PCA_images(images, principal_component=1):
     principal_component : int
         What principal component to display in the image. 1 is most influential,
         2 is the second most influential and so on.
-    
+
     Returns : tf.Tensor
         The summary protocol buffer (which is sent to a file-writer)
     """
