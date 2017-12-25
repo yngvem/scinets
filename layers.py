@@ -105,8 +105,8 @@ def _generate_activation(activation, generate_string=False):
 def _generate_regularizer(regularizer, generate_string=False):
     """Generates an regularization function from string.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     regularizer : str
         What regularizer to use. Acceptable values are the name of callables
         in the `regularizers.py` file, or None.
