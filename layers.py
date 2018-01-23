@@ -834,7 +834,7 @@ def max_pool(x, pool_size=2, strides=2, scope='max_pool', verbose=True,
             inputs=x,
             pool_size=pool_size,
             strides=pool_size,
-            padding='valid'
+            padding='valid',
             name='max_pool'
         )
 

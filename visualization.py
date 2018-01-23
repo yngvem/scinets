@@ -1,9 +1,10 @@
 import tensorflow as tf
 import numpy as np
 
-def log_variable(var, log_mean=True, log_stddev=True, log_max=True, log_min=True, 
-                 log_histogram=True, var_name=None):
-    """Attach a lot of summaries to a Tensor (for TensorBoard visualization)."""
+def log_variable(var, log_mean=True, log_stddev=True, log_max=True, 
+                 log_min=True, log_histogram=True, var_name=None):
+    """Attach a lot of summaries to a Tensor (for TensorBoard visualization).
+    """
     summaries = []
     scope = 'summaries' if var_name is None else 'summaries ' + var_name
     with tf.variable_scope('summaries'):
