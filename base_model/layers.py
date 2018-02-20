@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
-import activations
-import regularizers
+from . import activations
+from . import regularizers
 
 
 _ver = [int(v) for v in tf.__version__.split('.')]
@@ -804,7 +804,7 @@ def learned_avg_pool(x, pool_size=2, initializer='he', std=0.1,
 def max_pool(x, pool_size=2, strides=2, scope='max_pool', verbose=True,
              **kwargs):
     """
-    An max poling layer.
+    Max poling layer.
 
     Parameters
     ----------
@@ -851,3 +851,42 @@ def max_pool(x, pool_size=2, strides=2, scope='max_pool', verbose=True,
             )
 
         return out, {}, []
+
+
+def concat(x1, x2, axis=-1, scope='concat', verbose=True):
+    """Concatenate the inputs `x1` and `x2` along the given axis.
+
+    Parameters:
+    -----------
+    x1, x2 : tensorflow.Variable
+        The variables that are concatenated together.
+    axis : int
+        The axis to concatenate along.
+    scope : str
+        The variable scope of this layer.
+    verbose : bool
+        Wether additional layer information should be printed.
+    
+
+    Returns:
+    --------
+    out : tensorflow.Variable
+        Output tensor of this layer
+    params : dict
+        Empty dictionary.
+    reg_list : list
+        Empty list.
+    """
+    with tf.variable_scope(scope) as vscope:
+        out = tf.concat((x1, x2), axis=axis)
+
+        if verbose:
+            print(
+                '________________Concatenation layer________________\n',
+                'Variable_scope: {}\n'.format(vscope.name),
+                'Input tensors: {}, {}\n'.format(x1, x2),
+                'Output shape: {}'.format(out.get_shape().as_list())
+            )
+    
+    return out, {}, []
+
