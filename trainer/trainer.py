@@ -100,7 +100,7 @@ class NetworkTrainer:
         batch_x = batch_x.reshape(-1, 28, 28, 1)
         feed_dict = {
             self.network.input: batch_x,
-            self.network.true_labels: batch_y,
+            self.network.true_out: batch_y,
             self.network.is_training: True
         }
 
