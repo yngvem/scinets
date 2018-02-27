@@ -1,1 +1,1 @@
-from .logger import NetworkLogger
+from .logger import TensorboardLogger
