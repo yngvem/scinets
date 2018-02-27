@@ -13,4 +13,5 @@ def weight_decay(x, amount=1, name='weight_decay', **kwargs):
     name : str
         The name of the regularisation parameter
     """
-    return amount*tf.reduce_sum(tf.pow(x, 2, name=name))/tf.reduce_sum(x)
+    return tf.multiply(amount/tf.reduce_sum(x), tf.reduce_sum(tf.pow(x, 2)), 
+                   name=name)
