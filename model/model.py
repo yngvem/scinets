@@ -1,5 +1,3 @@
-# TODO: Check regularization!
-
 from copy import copy
 import tensorflow as tf
 from . import layers
@@ -23,7 +21,7 @@ class EmptyNet:
 
         # Placeholders
         self._is_training = None
-        self._true_labels = None
+        self._true_out = None
 
     @property
     def name(self):
@@ -86,10 +84,10 @@ class EmptyNet:
         return self._out
 
     @property
-    def true_labels(self):
+    def true_out(self):
         """Placeholder containing the true labels for the input placeholder.
         """
-        return self._true_labels
+        return self._true_out
 
     @property
     def loss(self):
@@ -105,7 +103,7 @@ class EmptyNet:
 
 class NeuralNet(EmptyNet):
     def __init__(self, x, architecture, name=None, is_training=None,
-                 true_labels=None, loss_function=None, verbose=False):
+                 true_out=None, loss_function=None, verbose=False):
         """
         Create a standard feed-forward net.
 
@@ -117,17 +115,23 @@ class NeuralNet(EmptyNet):
             An array of dictionaries. The first dictionary specifies the 
             parameters of the first layer, the second dictionary specifies the 
             parameters of the second layer and so on.
-        is_training : tf.placeholder(bool, [])
+        is_training : tf.placeholder(bool, []) (optional)
             Variable used to specify wether the net is training or not. For 
-            example used in batch normalisation and stochastic depth.
-        verbose : bool
+            example used in batch normalisation and stochastic depth. 
+            A placeholder will be generated for this if it is not provided.
+        true_out : tf.Variable (optional)
+            The wanted output of the network for the given input.
+        loss_function : str (optional)
+            The name of the loss function used during training. Must be the name
+            of a function in the `segmentation_nets.model.losses` file.
+        verbose : bool (optional)
             Used to specify if information about the networkshould be printed to
             the terminal window.
         """
         # Check if placeholders are supplied
         self._is_training = is_training if is_training is not None \
                 else tf.placeholder(tf.bool, [])
-        self._true_labels = true_labels
+        self._true_out = true_out
 
         
         # Set pre-assembly properties
@@ -137,13 +141,14 @@ class NeuralNet(EmptyNet):
         self._name = name
 
         # Assemble network
-        self.build_model()
+        with tf.variable_scope(self.name) as self.vscope:
+            self.build_model()
 
         # Set loss function
-        if true_labels is not None and loss_function is not None:
-            self.set_loss(true_labels, loss_function)
+        if true_out is not None and loss_function is not None:
+            self.set_loss(true_out, loss_function)
 
-    def set_loss(self, true_labels, loss_function, true_name='labels', 
+    def set_loss(self, true_out, loss_function, true_name='labels', 
                  predicted_name='logits', **kwargs):
         """
         Set the loss function of the network.
@@ -160,26 +165,26 @@ class NeuralNet(EmptyNet):
         predicted_name : str
             Keyword for the predicted labels for the loss function
         """
-        self._true_labels = true_labels
+        self._true_out = true_out
         self.init_accuracy()
 
         loss_func = getattr(losses, loss_function)
-        with tf.variable_scope(self.name, reuse=True):
+        with tf.variable_scope(self.name+'/loss'):
             uregularised_loss = tf.reduce_mean(
                     loss_func(
                         **{predicted_name: self.out,
-                           true_name: self.true_labels}
+                           true_name: self.true_out}
                     ),
-                    name='Loss'
+                    name='loss_function'
             )
             self._loss = tf.add(uregularised_loss, self.reg_op,
-                                name='Regularised_Loss')
+                                name='regularised_Loss')
 
     def init_accuracy(self):
         """Initiate the accuracy operator of the network.
         """
         correct_predictions = tf.equal(
-            tf.argmax(self.out, axis=-1), tf.argmax(self.true_labels, axis=-1)
+            tf.argmax(self.out, axis=-1), tf.argmax(self.true_out, axis=-1)
         )
         self._accuracy = tf.reduce_mean(
             tf.cast(correct_predictions, tf.float32)
@@ -192,7 +197,9 @@ class NeuralNet(EmptyNet):
         for regs in self.reg_lists.values():
             self.reg_list += regs
 
-        self._reg_op = tf.add_n(self.reg_list) if len(self.reg_list) > 0 else 0
+        self._reg_op = 0
+        if len(self.reg_list) > 0:
+            self._reg_op = tf.add_n(self.reg_list, name='regularizers')
 
     def assemble_layer(self, layer):
         """Assemble a single layer.
@@ -220,11 +227,11 @@ class NeuralNet(EmptyNet):
 
         if self.verbose:
             print('\n'+25*'-'+'Assembling network'+25*'-')
-        with tf.variable_scope(self.name):
-            for layer in self.architecture:
-                self.assemble_layer(layer)
+
+        for layer in self.architecture:
+            self.assemble_layer(layer)
+
         if self.verbose:
             print(25*'-'+'Finished assembling'+25*'-'+'\n')
             
         self.collect_regularizers()
-
