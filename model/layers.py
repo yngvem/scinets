@@ -43,8 +43,8 @@ def _flatten(x, return_flattened=False):
 def _generate_initializer(initializer, std=1, generate_string=False):
     """Generates an initializer instance from string.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     initializer : str
         What initializer to use. Acceptable values are 'he', 'glorot' and
         'normal' (or 'gaussian').
@@ -80,8 +80,8 @@ def _generate_initializer(initializer, std=1, generate_string=False):
 def _generate_activation(activation, generate_string=False):
     """Generates an activation function from string.
 
-    Arguments
-    ---------
+    Parameters
+    ----------
     activation : str
         What initializer to use. Acceptable values are the name of 
         callables in the `activations.py` file, or None.

@@ -4,7 +4,6 @@ from copy import copy
 import tensorflow as tf
 from . import layers
 from . import losses
-from . import optimizers
 
 class EmptyNet:
     """Container for all properties of NeuralNet classes
@@ -143,7 +142,6 @@ class NeuralNet(EmptyNet):
         # Set loss function
         if true_labels is not None and loss_function is not None:
             self.set_loss(true_labels, loss_function)
-            self.init_accuracy()
 
     def set_loss(self, true_labels, loss_function, true_name='labels', 
                  predicted_name='logits', **kwargs):
@@ -163,23 +161,28 @@ class NeuralNet(EmptyNet):
             Keyword for the predicted labels for the loss function
         """
         self._true_labels = true_labels
+        self.init_accuracy()
+
         loss_func = getattr(losses, loss_function)
-        self._loss = tf.reduce_mean(loss_func(
-            **{
-                predicted_name: self.out,
-                true_name: self.true_labels
-            }
-        )) + self.reg_op
+        with tf.variable_scope(self.name, reuse=True):
+            uregularised_loss = tf.reduce_mean(
+                    loss_func(
+                        **{predicted_name: self.out,
+                           true_name: self.true_labels}
+                    ),
+                    name='Loss'
+            )
+            self._loss = tf.add(uregularised_loss, self.reg_op,
+                                name='Regularised_Loss')
 
     def init_accuracy(self):
         """Initiate the accuracy operator of the network.
         """
+        correct_predictions = tf.equal(
+            tf.argmax(self.out, axis=-1), tf.argmax(self.true_labels, axis=-1)
+        )
         self._accuracy = tf.reduce_mean(
-            tf.cast(
-                tf.equals(
-                    tf.argmax(self.out, axis=0), tf.argmax(true_labels, axis=0)
-                ),
-                tf.float32
+            tf.cast(correct_predictions, tf.float32)
         )
 
     def collect_regularizers(self):
