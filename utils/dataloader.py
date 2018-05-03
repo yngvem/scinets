@@ -172,6 +172,7 @@ class HDFReader:
         """
         if '__iter__' not in dir(batch_size):  # Check if batch_size is iterable
             batch_size = [batch_size]*3
+        self.batch_size = batch_size
 
         if is_training is None:
             is_training = tf.placeholder_with_default(True, shape=[], 
