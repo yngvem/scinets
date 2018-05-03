@@ -2,13 +2,14 @@ import tensorflow as tf
 import numpy as np
 from . import optimizers
 from pathlib import Path
+from collections import Iterable
 import json
 
 
 class NetworkTrainer:
     """Class used to train a network instance.
     """
-    def __init__(self, network, dataset, train_op='AdamOptimizer',
+    def __init__(self, network, epoch_size, train_op='AdamOptimizer',
                  train_op_kwargs=None, max_checkpoints=10, save_step=100,
                  verbose=True):
         """Trainer class for neural networks.
@@ -17,8 +18,6 @@ class NetworkTrainer:
         ----------
         network : segmentation_nets.model.NeuralNet
             Network to train.
-        dataset : segmentation_nets.dataset.Dataset
-            Dataset to use during training.
         train_op : str
             The name of the training operator to use, must be defined in
             `segmentation_nets.trainer.optimizers`.
@@ -34,9 +33,8 @@ class NetworkTrainer:
             Whether additional printout should be produced.
         """
         self.network = network
-        self.dataset = dataset
         self.num_steps = 0
-        self.epoch_size = dataset.epoch_size
+        self.epoch_size = epoch_size
         self.save_step = save_step
 
         self.train_op_name = train_op
@@ -45,9 +43,12 @@ class NetworkTrainer:
         self.logdir = Path('./logs')/network.name/'checkpoints'
         self.verbose = verbose
 
-        self._optimizer, self._train_step = self.init_train_op(train_op,
-                                                               train_op_kwargs)
-        self._saver = self.init_saver(max_checkpoints)
+        with tf.variable_scope('trainer'):
+            self._optimizer, self._train_step = self.init_train_op(
+                train_op,
+                train_op_kwargs
+            )
+            self._checkpoint_saver = self.init_saver(max_checkpoints)
 
     def train(self, session, num_steps, additional_ops=None):
         """Trains the network for a given number of steps.
@@ -76,14 +77,16 @@ class NetworkTrainer:
             output[i], _ = self.train_step(session, additional_ops=additional_ops)
         return output, iterations
 
-    def train_step(self, session, additional_ops=None):
+    def train_step(self, session, additional_ops=None, feed_dict=None):
         """Performs one training step of the specified model.
 
         Parameters
         ----------
         session : tensorflow.Session
-        additional_ops : tensorflow.Operator
+        additional_ops : list or tensorflow.Operator
             Additional tensorflow operators to run.
+        feed_dict : dict
+            The inputs to the network.
         
         Returns
         -------
@@ -92,16 +95,19 @@ class NetworkTrainer:
         int
             Current iteration number.
         """
-        
         additional_ops = [] if additional_ops is None else additional_ops
+        try:
+            iter(additional_ops)
+            additional_ops = list(additional_ops)
+        except TypeError:
+            additional_ops = [additional_ops]
+        
         run_list = [self._train_step] + additional_ops
-
-        batch_x, batch_y = self.dataset.train.next_batch(100)
-        batch_x = batch_x.reshape(-1, 28, 28, 1)
+        
+        feed_dict = {} if feed_dict is None else feed_dict
         feed_dict = {
-            self.network.input: batch_x,
-            self.network.true_out: batch_y,
-            self.network.is_training: True
+            self.network.is_training: True,
+            **feed_dict
         }
 
         output = session.run(run_list, feed_dict=feed_dict)[1:]
@@ -119,7 +125,7 @@ class NetworkTrainer:
         if not self.logdir.is_dir():
             self.logdir.mkdir(parents=True)
         file_name = str(self.logdir/'checkpoint')
-        self._saver.save(session, file_name,
+        self._checkpoint_saver.save(session, file_name,
                          global_step=self.num_steps)
         if self.verbose:
             print('Model saved')
@@ -133,7 +139,7 @@ class NetworkTrainer:
         if self.verbose:
             print('Loading model checkpoint {}'.format(step_num))
         log_file = str(self.logdir/'checkpoint-{}'.format(step_num))
-        self._saver.restore(session, log_file)
+        self._checkpoint_saver.restore(session, log_file)
         self.num_steps = step_num
         if self.verbose:
             print('Model loaded')
