@@ -3,7 +3,8 @@ from pathlib import Path
 
 class TensorboardLogger:
     def __init__(self, network, log_dict=None, train_log_dict=None,
-                 val_log_dict=None, train_collection=None, val_collection=None):
+                 val_log_dict=None, log_dir='./logs', train_collection=None,
+                 val_collection=None):
         """Initiates a network logger.
 
         Summary operators are created according to the parameters specified
@@ -37,6 +38,7 @@ class TensorboardLogger:
                 'out': {'log_name': 'Predictions',
                         'log_types': ['histogram', 'image']},
                 
+        Returns
                 'conv1/weights': {'log_name': 'Conv1',
                                 'log_types': ['histogram'] },
                 
@@ -58,6 +60,8 @@ class TensorboardLogger:
         val_log_dict : dict
             Dictionary specifying the logs that should be logged using only
             validation data.
+        log_dir : str or pathlib.Path
+            The directory to store the logs in.
         train_collection : str (optional)
             The tensorflow collection to place the training variables. Should
             be different from the validation collection. If this is not 
@@ -83,7 +87,7 @@ class TensorboardLogger:
         if val_collection is None:
             val_collection = tf.GraphKeys.SUMMARIES+'_val'
 
-        # Set logging parameters
+     rain_data_reader)   # Set logging parameters
         self.network = network
         self.train_log_dict = {**log_dict, **train_log_dict}
         self.val_log_dict = {**log_dict, **val_log_dict}
@@ -92,7 +96,7 @@ class TensorboardLogger:
         self.collections = None
 
         # Prepare for file writers
-        self.logdir = Path('./logs')/network.name/'tensorboard'
+        self.log_dir = Path(log_dir)/network.name/'tensorboard'
         self.train_writer = None
         self.val_writer = None
         self.save_step = None
@@ -195,9 +199,9 @@ class TensorboardLogger:
             How often results should be stored to disk
         """
         self.session = session
-        self.train_writer = tf.summary.FileWriter(str(self.logdir/'train'),
+        self.train_writer = tf.summary.FileWriter(str(self.log_dir/'train'),
                                                   self.session.graph)
-        self.val_writer = tf.summary.FileWriter(str(self.logdir/'test'))
+        self.val_writer = tf.summary.FileWriter(str(self.log_dir/'test'))
         self.save_step  = save_step
     
     def log_multiple(self, summaries, it_nums, log_type='train'):
