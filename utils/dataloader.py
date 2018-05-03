@@ -1,5 +1,5 @@
 """
-
+TODO: Remove unnecessary batch sizes!!!
 """
 
 
@@ -14,28 +14,131 @@ import tensorflow as tf
 from contextlib import contextmanager
 
 
-def join(a, *args):
-    """Join internal HDF5 paths.
+class HDFData:
+    """Wrapper for HDF5 files for tensorflow. Creates a Tensorflow dataset.
     """
-    a = str(a)
-    for subdir in args:
-        a += '/' + str(subdir)
-    return a
-
-
-class DataReader:
-    """Wrapper for HDF5 files for tensorflow.
-    """
-
-    def __init__(self, data_path, train_group='train', test_group='test',
-                 val_group='validation', dataset='images', target='masks'):
+    def __init__(self, data_path, batch_size, group='train', dataset='images',
+                 target='masks', name='data_reader'):
         """Setup the data reader.
 
-        This will not prepare the dequeue instances. The `prepare_train_data`
-        and `prepare_test_data` functions must be ran for the train dequeue
-        and test dequeue objects to be created (one can run the 
-        `prepare_trian_data` if one only needs the train deuqueue instances
-        and vice versa).
+        This will not prepare the dequeue instances. The `prepare_data`
+        and functions must be ran for the dequeue object to be created.
+
+        Parameters:
+        -----------
+        data_path : str
+            The path to the h5 file.
+        group : str
+            Internal path to the h5 group where the data is.
+        dataset : str
+            Name of the h5 dataset which contains the data points.
+        target : str
+            Name of the h5 dataset which contains the labels (or whichever
+            output that is wanted from the network).
+        """
+        group = group if group[0] == '/' else '/'+ group
+
+        self.data_path = str(data_path)
+        self.group = group
+        self.data_name = dataset
+        self.target_name = target
+
+        # The order in which the samples was drawn
+        self.trained_order = []
+
+        # Get the shapes of the input and output data
+        self.shapes = {}
+        with h5py.File(data_path) as h5:
+            g = h5[self.group]
+            self._len = g[dataset].shape[0]
+
+            if 'shape' in g[dataset].attrs:
+                self.shapes[dataset] = tuple(g[dataset].attrs['shape'])
+            else:
+                self.shapes[dataset] = tuple(g[dataset].shape[1:])
+
+            if 'shape' in g[target].attrs:
+                self.shapes[target] = tuple(g[target].attrs['shape'])
+            else:
+                self.shapes[target] = tuple(g[target].shape[1:])
+
+        # Get tensorflow dataset and related objects
+        with tf.variable_scope(name):
+            self._tf_dataset = tf.data.Dataset.from_generator(
+                generator=self._iterate_dataset_randomly_forever,
+                output_types=(tf.int16, tf.float32, tf.float32),
+                output_shapes=([], self.shapes[dataset], self.shapes[target])
+            )
+            self._tf_dataset = self._tf_dataset.repeat().batch(5)
+            self._tf_iterator = self._tf_dataset.make_one_shot_iterator()
+            self._next_el_op = self._tf_iterator.get_next()
+
+    def _get_image_and_target(self, idx, h5):
+        """Extract the input and output data of given index from a HDF5 file.
+
+        Parameters:
+        -----------
+        idx : int
+            Index of the data point to return
+        h5 : h5py.File
+            An opened HDF5 file to extract the data from.
+        """
+        group = h5[self.group]
+
+        image = group[self.data_name][idx]
+        image = image.reshape(self.shapes[self.data_name])
+
+        target = group[self.target_name][idx]
+        target = target.reshape(self.shapes[self.target_name])
+
+        return image, target
+
+    def _iterate_dataset_randomly_forever(self):
+        """Infinite generator, returns a random image from the dataset.
+
+        It is not completely random, rather, the dataset is shuffled and
+        every element is yielded before shuffling it again.
+        """
+        while True:
+            for idx, image, target in self._iterate_dataset_randomly_once():
+                yield idx, image, target
+
+    def _iterate_dataset_randomly_once(self):
+        """Iterates through the dataset in random order
+        """
+        with h5py.File(self.data_path, 'r') as h5:
+            idxes = np.arange(len(self))
+            np.random.shuffle(idxes)
+            for idx in idxes:
+                yield (idx, *self._get_image_and_target(idx, h5))
+
+    def __len__(self):
+        return self._len
+
+    @property
+    def idxes(self):
+        """The indices of the current image batch.
+        """
+        return self._next_el_op[0]
+    
+    @property
+    def images(self):
+        """The tensorflow operator to get the current image batch.
+        """
+        return self._next_el_op[1]
+     
+    @property
+    def targets(self):
+        """The Tensorflow operator to get the current batch of masks.
+        """
+        return self._next_el_op[2]
+
+
+class HDFReader:
+    def __init__(self, data_path, batch_size, train_group='train', 
+                 val_group='validation', test_group='test', dataset='images',
+                 target='masks', is_training=None, is_testing=None):
+        """Setup the data reader.
 
         The HDF5 file should have one group for the training set, one for the
         test set and one for the validation set. The input data and
@@ -45,6 +148,10 @@ class DataReader:
         -----------
         data_path : str
             The path to the h5 file.
+        batch_size : int or list
+            The batch size(s) to use, if list, the first number will be used
+            as training batch size, the second as the validation batch size
+            and the last as the test batch size.
         train_group : str
             Internal path to the h5 group where the training data is.
         test_group : str
@@ -56,222 +163,146 @@ class DataReader:
         target : str
             Name of the h5 dataset which contains the labels (or whichever
             output that is wanted from the network).
+        is_training : tensorflow.Placeholder(bool, [])
+            Placeholder used to specify whether the training data should be
+            the output or not.
+        is_testing : tensorflow.Placeholder(bool, [])
+            Placeholder used to specify whether the test or validation data
+            should be used. If `is_training` is True, this is ignored.
         """
+        if '__iter__' not in dir(batch_size):  # Check if batch_size is iterable
+            batch_size = [batch_size]*3
+
+        if is_training is None:
+            is_training = tf.placeholder_with_default(True, shape=[], 
+                                                      name='is_training')
+        if is_testing is None:
+            is_testing = tf.placeholder_with_default(False, shape=[],
+                                                     name='is_testing')
         self.data_path = str(data_path)
-        self.group_names = {
-            'train': train_group,
-            'val': val_group,
-            'test': test_group
-        }
-        self.data_names = {'dataset': dataset, 'target': target}
-        
-        with h5py.File(data_path) as h5:
-            self.shapes = self._get_shapes(h5)
 
-    def _get_shapes(self, dataset_paths):
-        """Create a dictionary with the shapes of the entries in the data tables.
+        self.is_training = is_training
+        self.is_testing = is_testing
+        self.batch_size = batch_size
+        with tf.variable_scope('data_loader'):
+            self.train_data_reader = HDFData(
+                data_path=data_path,
+                batch_size=batch_size[0],
+                group=train_group,
+                dataset=dataset,
+                target=target,
+                name='train_reader'
+            )
+            self.val_data_reader = HDFData(
+                data_path=data_path,
+                batch_size=batch_size[1],
+                group=val_group,
+                dataset=dataset,
+                target=target,
+                name='val_reader'
+            )
+            self.test_data_reader = HDFData(
+                data_path=data_path,
+                batch_size=batch_size[2],
+                group=test_group,
+                dataset=dataset,
+                target=target,
+                name='test_reader'
+            )
+            self._create_conditionals()
+
+    def _create_conditionals(self):
+        """Set up conditional operators specifying which datasets to use.
         """
-        dataset_paths = [
-            join(group_name, dataset_name)
-                for group_name in self.group_names.items()
-                    for dataset_name in self.data_names.items()
-        ]
-        shapes = {}
-        for dataset_path in dataset_paths:
-            if dataset_path not in h5group:
-                continue
-            if 'shape' in h5group[dataset_path].attrs:
-                shapes[dataset_path] = h5group[dataset_path].attrs['shape']
-        return shapes
+        with tf.variable_scope('test_train_or_val'):
+            val_test_data = tf.cond(
+                self.is_testing,
+                true_fn=lambda: self.test_data,
+                false_fn=lambda: self.val_data,
+                name='use_test_data'
+            )
+            self.conditional_data = tf.cond(
+                self.is_training,
+                true_fn=lambda: self.train_data,
+                false_fn=lambda: val_test_data,
+                name='use_train_data'
+            )
 
-    def prepare_group_loader(self, group, batch_size, queue_size, n_procs=3):
-        """Prepare the FIFO loader and dequeue objects for a given group.
-        """
-        reader = tftables.open_file(self.data_path,
-                                    batch_size=batch_size)
-        
-        data_placeholder = _train_reader.get_batch(
-            path=join(self.group_names[group], self.data_names['dataset']),
-            block_size=2*batch_size+1   # Found this in tftables unittests
-        )
-        target_placeholder = _train_reader.get_batch(
-            path=join(self.group_names[group], self.data_names['target']),
-            block_size=2*batch_size+1   # Found this in tftables unittests
-        )
-        placeholders = {
-            'data': data_placeholder,
-            'target': target_placeholder
-        }
+            val_test_target = tf.cond(
+                self.is_testing,
+                true_fn=lambda: self.test_target,
+                false_fn=lambda: self.val_target,
+                name='use_test_target'
+            )
+            self.conditional_target = tf.cond(
+                self.is_training,
+                true_fn=lambda: self.train_target,
+                false_fn=lambda: val_test_target,
+                name='use_train_target'
+            )
 
-        loader = reader.get_fifoloader(
-            queue_size=queue_size
-            inputs = [data_placeholder, target_placeholder],
-            threads=1
-        )
-            
-        dequeue = self._train_loader.dequeue()
-
-        return reader, placeholders, loader, dequeue
-
-    def prepare_train_data(batch_size, queue_size, n_procs=1):
-        """Create dequeue objects for the training data.
-
-        Parameters:
-        -----------
-        batch_size : int
-            Batch size.
-        queue_size : int
-            Maximum number of data points to keep in RAM at the same time.
-        n_procs : int (optional)
-            Number of processes to use for reading data.
-        """
-        reader, placeholders, loader, dequeue = self.prepare_group_loader(
-            group='train',
-            batch_size=batch_size,
-            queue_size=queue_size,
-            n_procs=n_procs
-        )
-        self.train_reader = reader
-        self.train_placeholders = placeholders
-        self.train_loader = loader
-        self.train_dequeue = dequeue
-
-    def prepare_test_data(batch_size, queue_size, n_procs=1):
-        """Create dequeue objects for the test data.
-
-        Parameters:
-        -----------
-        batch_size : int
-            Batch size.
-        queue_size : int
-            Maximum number of data points to keep in RAM at the same time.
-        n_procs : int (optional)
-            Number of processes to use for reading data.
-        """
-        reader, placeholders, loader, dequeue = self.prepare_group_loader(
-            group='test',
-            batch_size=batch_size,
-            queue_size=queue_size,
-            n_procs=n_procs
-        )
-        self.test_reader = reader
-        self.test_placeholders = placeholders
-        self.test_loader = loader
-        self.test_dequeue = dequeue
-    
-    def prepare_val_data(batch_size, queue_size, n_procs=1):
-        """Create dequeue objects for the validation data.
-
-        Parameters:
-        -----------
-        batch_size : int
-            Batch size.
-        queue_size : int
-            Maximum number of data points to keep in RAM at the same time.
-        n_procs : int (optional)
-            Number of processes to use for reading data.
-        """
-        reader, placeholders, loader, dequeue = self.prepare_group_loader(
-            group='val',
-            batch_size=batch_size,
-            queue_size=queue_size,
-            n_procs=n_procs
-        )
-        self.val_reader = reader
-        self.val_placeholders = placeholders
-        self.val_loader = loader
-        self.val_dequeue = dequeue
-
-    def _reshape(self, dataset_path, dequeue, idx):
-        if dataset_path in self.shapes:
-            return tf.reshape(deuqueue[idx], self.shapes[dataset_path])
-        return dequeue[idx]
+            val_test_idxes = tf.cond(
+                self.is_testing,
+                true_fn=lambda: self.test_idxes,
+                false_fn=lambda: self.val_idxes,
+                name='use_test_idxes'
+            )
+            self.conditional_idxes = tf.cond(
+                self.is_training,
+                true_fn=lambda: self.train_idxes,
+                false_fn=lambda: val_test_idxes,
+                name='use_train_idxes'
+            )
 
     @property
     def train_data(self):
-        path = join(self.group_names['train'], self.data_names['dataset'])
-        return self._reshape(path, self.train_dequeue, 0)
+        return self.train_data_reader.images
     
     @property
-    def train_masks(self):
-        path = join(self.group_names['train'], self.data_names['target'])
-        return self._reshape(path, self.train_dequeue, 1)
+    def train_target(self):
+        return self.train_data_reader.targets
 
     @property
-    def test_data(self):
-        path = join(self.group_names['test'], self.data_names['dataset'])
-        return self._reshape(path, self.test_dequeue, 0)
-    
-    @property
-    def test_masks(self):
-        path = join(self.group_names['test'], self.data_names['target'])
-        return self._reshape(path, self.test_dequeue, 1)
+    def train_idxes(self):
+        return self.train_data_reader.idxes
 
     @property
     def val_data(self):
-        path = join(self.group_names['val'], self.data_names['dataset'])
-        return self._reshape(path, self.val_dequeue, 0)
+        return self.val_data_reader.images
     
     @property
-    def val_masks(self):
-        path = join(self.group_names['val'], self.data_names['target'])
-        return self._reshape(path, self.val_dequeue, 1)
+    def val_target(self):
+        return self.val_data_reader.targets
 
-    @contextmanager
-    def train_loader(self, sess):
-        self.train_loader.start(sess)
-        yield
-        self.train_loader.stop(sess)
-        self.train_loader.monitor_thread = None
+    @property
+    def val_idxes(self):
+        return self.val_data_reader.idxes
 
-    @contextmanager
-    def test_loader(self, sess):
-        self.test_loader.start(sess)
-        yield
-        self.test_loader.stop(sess)
-        self.test_loader.monitor_thread = None
-
-    @contextmanager
-    def val_loader(self, sess):
-        self.val_loader.start(sess)
-        yield
-        self.val_loader.stop(sess)
-        self.val_loader.monitor_thread = None
-
-    @contextmanager
-    def train_val_loader(self, sess):
-        self.train_loader.start(sess)
-        self.val_loader.start(sess)
-        yield
-        self.train_loader.stop(sess)
-        self.train_loader.monitor_thread = None
-        self.val_loader.stop(sess)
-        self.val_loader.monitor_thread = None
-
-    @contextmanager
-    def test_val_loader(self, sess):
-        self.test_loader.start(sess)
-        self.val_loader.start(sess)
-        yield
-        self.test_loader.stop(sess)
-        self.test_loader.monitor_thread = None
-        self.val_loader.stop(sess)
-        self.val_loader.monitor_thread = None
-        
-    @contextmanager
-    def all_loaders(self, sess):
-        self.train_loader.start(sess)
-        self.test_loader.start(sess)
-        self.val_loader.start(sess)
-        yield
-        self.train_loader.stop(sess)
-        self.train_loader.monitor_thread = None
-        self.test_loader.stop(sess)
-        self.test_loader.monitor_thread = None
-        self.val_loader.stop(sess)
-        self.val_loader.monitor_thread = None
-
+    @property
+    def test_data(self):
+        return self.test_data_reader.images
     
+    @property
+    def test_target(self):
+        return self.test_data_reader.targets
+
+    @property
+    def test_idxes(self):
+        return self.test_data_reader.idxes
+
+    @property
+    def data(self):
+        return self.conditional_data
+
+    @property
+    def target(self):
+        return self.conditional_target
+
+    @property
+    def idxes(self):
+        return self.conditional_idxes
+
+
 if __name__ == '__main__':
     pass
 
