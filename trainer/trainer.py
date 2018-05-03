@@ -9,9 +9,9 @@ import json
 class NetworkTrainer:
     """Class used to train a network instance.
     """
-    def __init__(self, network, epoch_size, train_op='AdamOptimizer',
-                 train_op_kwargs=None, max_checkpoints=10, save_step=100,
-                 verbose=True):
+    def __init__(self, network, epoch_size, log_dir='./logs', 
+                 train_op='AdamOptimizer', train_op_kwargs=None, 
+                 max_checkpoints=10, save_step=100, verbose=True):
         """Trainer class for neural networks.
 
         Parameters
@@ -40,7 +40,7 @@ class NetworkTrainer:
         self.train_op_name = train_op
         self.train_op_kwargs = {} if train_op_kwargs is None else train_op_kwargs
 
-        self.logdir = Path('./logs')/network.name/'checkpoints'
+        self.log_dir = Path(log_dir)/network.name/'checkpoints'
         self.verbose = verbose
 
         with tf.variable_scope('trainer'):
@@ -122,9 +122,9 @@ class NetworkTrainer:
         """
         if self.verbose:
             print('Saving model')
-        if not self.logdir.is_dir():
-            self.logdir.mkdir(parents=True)
-        file_name = str(self.logdir/'checkpoint')
+        if not self.log_dir.is_dir():
+            self.log_dir.mkdir(parents=True)
+        file_name = str(self.log_dir/'checkpoint')
         self._checkpoint_saver.save(session, file_name,
                          global_step=self.num_steps)
         if self.verbose:
@@ -134,11 +134,11 @@ class NetworkTrainer:
         """Load specified checkpoint, latest is used if `step_num` isn't given.
         """
         if step_num==None:
-            with (self.logdir/'latest_step.json') as f:
+            with (self.log_dir/'latest_step.json') as f:
                 step_num = json.load(f)
         if self.verbose:
             print('Loading model checkpoint {}'.format(step_num))
-        log_file = str(self.logdir/'checkpoint-{}'.format(step_num))
+        log_file = str(self.log_dir/'checkpoint-{}'.format(step_num))
         self._checkpoint_saver.restore(session, log_file)
         self.num_steps = step_num
         if self.verbose:
