@@ -166,13 +166,13 @@ class TensorboardLogger:
         log_var : tensorflow.Tensor
         log_type : str
             Which log to create. To list the available log types, print out
-            Logger.available_log_types.
+            Logger.available_log_types().
         log_name : str
         log_kwargs : dict
             Dictionary with additional keyword arguments for the log function.
         """
         if not hasattr(self, '_create_'+log_type+'_log'):
-            available_log_types = '\n'.join(self.available_log_types)
+            available_log_types = '\n'.join(self.available_log_types())
             raise AttributeError(
                 f'{log_type} is not a valid logging type, valid log types are:' \
                 f'\n {available_log_types}'
@@ -247,13 +247,13 @@ class TensorboardLogger:
         self.train_writer.flush()
         self.val_writer.flush()
 
-    @property
-    def available_log_types(self):
+    @classmethod
+    def available_log_types(cls):
         """List all available log methods.
         """
         return [
-            attribute[9:-4] for attribute in dir(self) 
-                if attribute[:9] == '_create_' and attribute[-4:] == '_log'
+            attribute[9:-4] for attribute in dir(cls) 
+                if attribute[:8] == '_create_' and attribute[-4:] == '_log'
         ]
 
     # ----------------------------- Log methods ----------------------------- #
@@ -271,7 +271,11 @@ class TensorboardLogger:
         return tf.summary.scalar(log_name, log_var, family=family,
                                  collections=self.collections)
 
-    def _create_image_log(self, log_name, log_var, max_outputs=3, family=None):
+    def _create_image_log(self, log_name, log_var, max_outputs=3, channel=None,
+                          family=None):
+        if channel is not None:
+            log_var = log_var[..., axis, tf.newaxis]
+
         return tf.summary.image(log_name, log_var, max_outputs=max_outputs,
                                 family=family, collections=self.collections)
 
