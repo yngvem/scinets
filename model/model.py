@@ -102,14 +102,15 @@ class EmptyNet:
         return self._accuracy
 
 class NeuralNet(EmptyNet):
-    def __init__(self, x, architecture, name=None, is_training=None,
-                 true_out=None, loss_function=None, verbose=False):
+    def __init__(self, input_var, architecture, name=None, is_training=None,
+                 true_out=None, loss_function=None, loss_kwargs=None, 
+                 verbose=False):
         """
         Create a standard feed-forward net.
 
         Parameters
         ----------
-        x : tf.Variable
+        input_var : tf.Variable
             The input variable to the network
         architecture : array_like
             An array of dictionaries. The first dictionary specifies the 
@@ -124,6 +125,8 @@ class NeuralNet(EmptyNet):
         loss_function : str (optional)
             The name of the loss function used during training. Must be the name
             of a function in the `segmentation_nets.model.losses` file.
+        loss_kwargs : dict (optional)
+            Keyword arguments to supply to the loss function.
         verbose : bool (optional)
             Used to specify if information about the networkshould be printed to
             the terminal window.
@@ -135,7 +138,7 @@ class NeuralNet(EmptyNet):
 
         
         # Set pre-assembly properties
-        self._input = x
+        self._input = input_var
         self._architecture = architecture
         self._verbose = verbose
         self._name = name
@@ -146,10 +149,10 @@ class NeuralNet(EmptyNet):
 
         # Set loss function
         if true_out is not None and loss_function is not None:
-            self.set_loss(true_out, loss_function)
+            self.set_loss(true_out, loss_function, loss_kwargs)
 
     def set_loss(self, true_out, loss_function, true_name='labels', 
-                 predicted_name='logits', **kwargs):
+                 predicted_name='logits', loss_kwargs, **kwargs):
         """
         Set the loss function of the network.
 
@@ -164,16 +167,19 @@ class NeuralNet(EmptyNet):
             Keyword for the true labels for the loss function
         predicted_name : str
             Keyword for the predicted labels for the loss function
+        loss_kwargs : dict (optional)
+            Keyword arguments for the loss function.
         """
         self._true_out = true_out
         self.init_accuracy()
 
-        loss_func = getattr(losses, loss_function)
+        loss_funcnetwork = getattr(losses, loss_function)
         with tf.variable_scope(self.name+'/loss'):
             uregularised_loss = tf.reduce_mean(
                     loss_func(
                         **{predicted_name: self.out,
-                           true_name: self.true_out}
+                           true_name: self.true_out},
+                        **loss_kwargs
                     ),
                     name='loss_function'
             )
