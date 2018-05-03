@@ -87,7 +87,7 @@ class TensorboardLogger:
         if val_collection is None:
             val_collection = tf.GraphKeys.SUMMARIES+'_val'
 
-     rain_data_reader)   # Set logging parameters
+        # Set logging parameters
         self.network = network
         self.train_log_dict = {**log_dict, **train_log_dict}
         self.val_log_dict = {**log_dict, **val_log_dict}
