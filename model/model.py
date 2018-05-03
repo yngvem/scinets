@@ -184,7 +184,8 @@ class NeuralNet(EmptyNet):
         """Initiate the accuracy operator of the network.
         """
         correct_predictions = tf.equal(
-            tf.argmax(self.out, axis=-1), tf.argmax(self.true_out, axis=-1)
+            tf.argmax(self.out, axis=-1),
+            tf.argmax(self.true_out, axis=-1)
         )
         self._accuracy = tf.reduce_mean(
             tf.cast(correct_predictions, tf.float32)
