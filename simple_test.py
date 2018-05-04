@@ -1,23 +1,9 @@
 import tensorflow as tf
-from tensorflow.examples.tutorials.mnist import input_data
 from model import NeuralNet
-from utils import TensorboardLogger, HDFReader
+from utils import TensorboardLogger, HDFReader, BinaryClassificationEvaluator
 from trainer import NetworkTrainer
 import sys
 
-
-def get_channel(image, channel):
-    return image[..., channel, tf.newaxis]
-
-
-def get_pet(image):
-    with tf.variable_scope('get_pet'):
-        return get_channel(image, 1)
-
-
-def get_ct(image):
-    with tf.variable_scope('get_ct'):
-        return get_channel(image, 0)
 
 
 if __name__ == '__main__':
@@ -28,15 +14,6 @@ if __name__ == '__main__':
     )
     is_training = dataset.is_training
     x = dataset.data
-    print('Getting shape')
-    target_shape = dataset.target.get_shape().as_list()
-    print(f'Target shape: {target_shape}')
-    target_shape[0] = -1
-    true_y = tf.reshape(dataset.target, (*target_shape, 1))
-    target_shape = true_y.get_shape().as_list()
-    print(f'Target shape: {target_shape}')
-
-
 
     architecture = [
             {
@@ -49,11 +26,12 @@ if __name__ == '__main__':
             }
     ]
 
-    name = sys.argv[1] if len(sys.argv) > 1 else 'test_net'
-    network = NeuralNet(x, architecture, verbose=True, name=name, is_training=dataset.is_training)
+    name = sys.argv[1] if len(sys.argv) > 1 else 'test_log'
+    network = NeuralNet(x, architecture, verbose=True, name=name,
+                        is_training=dataset.is_training)
     network.set_loss(
-        true_out=true_y,
-            loss_function='sigmoid_cross_entropy_with_logits'
+        true_out=dataset.target,
+        loss_function='sigmoid_cross_entropy_with_logits'
     )
     trainer = NetworkTrainer(network, epoch_size=len(dataset.train_data_reader))
     
@@ -68,11 +46,23 @@ if __name__ == '__main__':
                 'log_type': 'scalar'
             }
         ],
-        'out': [
+        'probabilities': [
             {
-                'log_name': 'Logit output',
+                'log_name': 'Probability_map',
                 'log_type': 'image',
                 'kwargs': {'max_outputs':1}
+            }
+        ],
+        'accuracy': [
+            {
+                'log_name': 'Accuracy',
+                'log_type': 'scalar'
+            }
+        ],
+        'dice': [
+            {
+                'log_name': 'Dice',
+                'log_type': 'scalar'
             }
         ],
         'true_out': [
@@ -87,18 +77,19 @@ if __name__ == '__main__':
                 'log_name': 'CT',
                 'log_type': 'image',
                 'kwargs': {'max_outputs': 1,
-                           'transform': get_ct}
+                           'channel': 0}
             },
             {
                 'log_name': 'PET',
                 'log_type': 'image',
                 'kwargs': {'max_outputs': 1,
-                           'transform': get_pet}
+                           'channel': 1}
             }
         ]
     }
 
-    logger = TensorboardLogger(network, log_dict)
+    evaluator = BinaryClassificationEvaluator(network)
+    logger = TensorboardLogger(evaluator, log_dict)
     
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
