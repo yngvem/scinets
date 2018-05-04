@@ -1,8 +1,15 @@
+__author__ = 'Yngve Mardal Moe'
+__email__ = 'yngve.m.moe@gmail.com'
+
+
 import tensorflow as tf
 from pathlib import Path
 
+
+    
+
 class TensorboardLogger:
-    def __init__(self, network, log_dict=None, train_log_dict=None,
+    def __init__(self, evaluator, log_dict=None, train_log_dict=None,
                  val_log_dict=None, log_dir='./logs', train_collection=None,
                  val_collection=None):
         """Initiates a network logger.
@@ -38,7 +45,6 @@ class TensorboardLogger:
                 'out': {'log_name': 'Predictions',
                         'log_types': ['histogram', 'image']},
                 
-        Returns
                 'conv1/weights': {'log_name': 'Conv1',
                                 'log_types': ['histogram'] },
                 
@@ -88,7 +94,8 @@ class TensorboardLogger:
             val_collection = tf.GraphKeys.SUMMARIES+'_val'
 
         # Set logging parameters
-        self.network = network
+        self.evaluator = evaluator
+        self.network = evaluator.network
         self.train_log_dict = {**log_dict, **train_log_dict}
         self.val_log_dict = {**log_dict, **val_log_dict}
         self.train_collection = train_collection
@@ -96,7 +103,7 @@ class TensorboardLogger:
         self.collections = None
 
         # Prepare for file writers
-        self.log_dir = Path(log_dir)/network.name/'tensorboard'
+        self.log_dir = Path(log_dir)/self.network.name/'tensorboard'
         self.train_writer = None
         self.val_writer = None
         self.save_step = None
@@ -152,10 +159,12 @@ class TensorboardLogger:
         var_name : str
             Name of the variable to get.
         """
-        if hasattr(self.network, var_name):
+        if hasattr(self.evaluator, var_name):
+            return getattr(self.evaluator, var_name)
+        elif hasattr(self.network, var_name):
             return getattr(self.network, var_name)
         elif var_name in self.network.params:
-            return network.params[var_name]
+            return self.network.params[var_name]
         else:
             raise AttributeError(
                 f'{var_name} not an attribute of {self.network.name} or ' \
@@ -278,7 +287,7 @@ class TensorboardLogger:
     def _create_image_log(self, log_name, log_var, max_outputs=3, channel=None,
                           family=None):
         if channel is not None:
-            log_var = log_var[..., axis, tf.newaxis]
+            log_var = log_var[..., channel, tf.newaxis]
 
         return tf.summary.image(log_name, log_var, max_outputs=max_outputs,
                                 family=family, collections=self.collections)
