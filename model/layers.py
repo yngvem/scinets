@@ -1,3 +1,7 @@
+__author__ = 'Yngve Mardal Moe'
+__email__ = 'yngve.m.moe@gmail.com'
+
+
 import tensorflow as tf
 import numpy as np
 from . import activations
