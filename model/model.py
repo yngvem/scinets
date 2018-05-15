@@ -1,3 +1,8 @@
+"""
+TODO: FIX loss kwargs
+"""
+
+
 __author__ = 'Yngve Mardal Moe'
 __email__ = 'yngve.m.moe@gmail.com'
 
@@ -56,7 +61,7 @@ class NeuralNet:
 
         # Set loss function
         if true_out is not None and loss_function is not None:
-            self.set_loss(true_out, loss_function, loss_kwargs)
+            self.set_loss(true_out, loss_function, loss_kwargs=loss_kwargs)
         
 
     def set_loss(self, true_out, loss_function, true_name='labels', 
