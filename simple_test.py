@@ -2,6 +2,7 @@ import tensorflow as tf
 from model import NeuralNet
 from utils import TensorboardLogger, HDFReader, BinaryClassificationEvaluator
 from trainer import NetworkTrainer
+from tqdm import trange
 import sys
 
 
@@ -9,7 +10,7 @@ import sys
 if __name__ == '__main__':
     dataset = HDFReader(
         data_path='/home/yngve/dataset_extraction/val_split_2d.h5',
-        batch_size=[5, 5, 1],
+        batch_size=[64, 64, 1],
         val_group='val'
     )
     is_training = dataset.is_training
@@ -26,7 +27,7 @@ if __name__ == '__main__':
             }
     ]
 
-    name = sys.argv[1] if len(sys.argv) > 1 else 'test_log'
+    name = sys.argv[1] if len(sys.argv) > 1 else 'testetest2'
     network = NeuralNet(x, architecture, verbose=True, name=name,
                         is_training=dataset.is_training)
     network.set_loss(
@@ -96,7 +97,13 @@ if __name__ == '__main__':
         logger.init_file_writers(sess)
         
         # Train the model
-        for i in range(100):
-            summaries, steps = trainer.train(sess, 10, additional_ops=[logger.train_summary_op])
-            summaries = [summary[0] for summary in summaries]
-            logger.log_multiple(summaries, steps)
+        for i in trange(1000):
+            train_summaries, steps = trainer.train(
+                sess,
+                10,
+                additional_ops=[logger.train_summary_op]
+            )
+            logger.log_multiple(train_summaries, steps)
+            val_summaries = sess.run(logger.val_summary_op,
+                                     feed_dict={is_training:False})
+            logger.log(val_summaries, steps[-1], log_type='val')
