@@ -1,8 +1,8 @@
 import tensorflow as tf
-from .model import NeuralNet
-from .utils import TensorboardLogger, HDFReader, BinaryClassificationEvaluator
-from .utils.experiment import NetworkExperiment
-from .trainer import NetworkTrainer
+from scinets.model import NeuralNet
+from scinets.utils import TensorboardLogger, HDFReader, BinaryClassificationEvaluator
+from scinets.utils.experiment import NetworkExperiment
+from scinets.trainer import NetworkTrainer
 from tqdm import trange
 import sys
 
@@ -45,6 +45,11 @@ if __name__ == '__main__':
     log_params={
         'val_log_frequency': 10,
         'evaluator': 'BinaryClassificationEvaluator',
+        'sacred_params': {
+            'log_dict': {
+                'loss': 'Loss'
+            }
+        }
         'tb_params': {
             'log_dict': {
                 'loss': [
@@ -57,7 +62,7 @@ if __name__ == '__main__':
                     {
                         'log_name': 'Probability_map',
                         'log_type': 'image',
-                        'kwargs': {'max_outputs':1}
+                        'log_kwargs': {'max_outputs':1}
                     }
                 ],
                 'accuracy': [
@@ -76,20 +81,20 @@ if __name__ == '__main__':
                     {
                         'log_name': 'Mask',
                         'log_type': 'image',
-                        'kwargs': {'max_outputs':1}
+                        'log_kwargs': {'max_outputs':1}
                     }
                 ],
                 'input': [
                     {
                         'log_name': 'CT',
                         'log_type': 'image',
-                        'kwargs': {'max_outputs': 1,
+                        'log_kwargs': {'max_outputs': 1,
                                 'channel': 0}
                     },
                     {
                         'log_name': 'PET',
                         'log_type': 'image',
-                        'kwargs': {'max_outputs': 1,
+                        'log_kwargs': {'max_outputs': 1,
                                 'channel': 1}
                     }
                 ]

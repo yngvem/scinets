@@ -1,7 +1,7 @@
 import tensorflow as tf
-from model import NeuralNet
-from utils import TensorboardLogger, HDFReader, BinaryClassificationEvaluator
-from trainer import NetworkTrainer
+from scinets.model import NeuralNet
+from scinets.utils import TensorboardLogger, HDFReader, BinaryClassificationEvaluator
+from scinets.trainer import NetworkTrainer
 from tqdm import trange
 import sys
 
@@ -35,7 +35,7 @@ if __name__ == '__main__':
         loss_function='sigmoid_cross_entropy_with_logits'
     )
     trainer = NetworkTrainer(network, epoch_size=len(dataset.train_data_reader))
-    
+
     log_dict = {
         'loss': [
             {
@@ -91,11 +91,11 @@ if __name__ == '__main__':
 
     evaluator = BinaryClassificationEvaluator(network)
     logger = TensorboardLogger(evaluator, log_dict)
-    
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         logger.init_file_writers(sess)
-        
+
         # Train the model
         for i in trange(1000):
             train_summaries, steps = trainer.train(

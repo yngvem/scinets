@@ -1,8 +1,8 @@
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
-from model import NeuralNet
-from utils import TensorboardLogger
-from trainer import NetworkTrainer
+from scinets.model import NeuralNet
+from scinets.utils import TensorboardLogger
+from scinets.trainer import NetworkTrainer
 import sys
 
 if __name__ == '__main__':
@@ -10,15 +10,15 @@ if __name__ == '__main__':
         def __init__(self):
             self.epoch_size = 10000
             self.dataset = input_data.read_data_sets('MNIST_data', one_hot=True)
-        
+
         @property
         def train(self):
             return self.dataset.train
-        
+
         @property
         def test(self):
             return self.dataset.test
-    
+
     mnist = Dataset()
 
     _x = tf.placeholder(tf.float32, shape=[None, 784])
@@ -94,15 +94,15 @@ if __name__ == '__main__':
     }
 
     logger = TensorboardLogger(network, log_dict)
-    
+
     correct_prediction = tf.equal(tf.argmax(network.out, 1), tf.argmax(network.true_labels, 1))
     accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-    
+
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         logger.init_file_writers(sess)
-        
+
         batch = mnist.test.next_batch(100)
         val_accuracy, = sess.run([network.accuracy], feed_dict={
             _x: batch[0], true_y: batch[1], network.is_training: False})
@@ -118,7 +118,7 @@ if __name__ == '__main__':
             val_accuracy, = sess.run([network.accuracy], feed_dict={
                 _x: batch[0], true_y: batch[1], network.is_training: False})
             print('step %d, val accuracy %g' % (0, val_accuracy))
-            
+
 
         print('test accuracy %g' % accuracy.eval(feed_dict={
           _x: mnist.test.images, true_y: mnist.test.labels, network.is_training: False}))

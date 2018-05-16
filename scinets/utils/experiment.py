@@ -16,7 +16,7 @@ class NetworkExperiment:
             'log_dir': './',
             'name': 'test_experiment',
             'continue_old': False,
-            'train_steps': 10000
+            'num_steps': 10000
         }
 
         model_params={
@@ -99,7 +99,7 @@ class NetworkExperiment:
         self.evaluator = self._get_evaluator(log_params['evaluator'])
         self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
 
-        self.train(experiment_params['train_steps'])
+        self.train(experiment_params['num_steps'])
     
     def _get_continue_old(self, experiment_params):
         """Extract whether an old experiment should be continued.
@@ -180,8 +180,9 @@ class NetworkExperiment:
         train_summaries, it_num = self.trainer.train(
             session=sess,
             num_steps=self.val_interval,
-            additional_ops=[self.tb_logger.train_summary_op]
+            additional_ops=[self.tb_logger.train_summary_op, self.model.loss]
         )
+        train_summaries = [s[0] for s in train_summaries]
         self.tb_logger.log_multiple(train_summaries, it_num)
 
         val_summaries = sess.run(
@@ -211,7 +212,7 @@ class SacredExperiment(NetworkExperiment):
         
         # Prepare for sacred:
         self.sacred_ex = sacred.Experiment(self.name, interactive=True)
-        self.connect_to_database(experiment_params[database_params])
+        self.connect_to_database(experiment_params['database_params'])
         self.sacred_cfg = self.sacred_config(self.sacred_ex, experiment_params,
                                              network_params, dataset_params,
                                              trainer_params, log_params)
@@ -221,7 +222,6 @@ class SacredExperiment(NetworkExperiment):
         ex.observers.append(
             sacred.observers.MongoObserver.create(**database_params)
         )
-
 
     def sacred_cfg(self, experiment, experiment_params, network_params,
                    dataset_params, trainer_params, log_params):
@@ -234,7 +234,7 @@ class SacredExperiment(NetworkExperiment):
             log_params = log_params
             
     def sacred_main(self, experiment):
-        @experiment.main
+        @experiment.automain
         def main(_run, experiment_params, network_params, dataset_params,
                  trainer_params, log_params):
             self.dataset, self.epoch_size = self._get_dataset(dataset_params)
@@ -251,23 +251,28 @@ class SacredExperiment(NetworkExperiment):
         """
         train_ops = [self.tb_logger.train_summary_op,
                      self.sacred_logger.train_summary_op]
+
         summaries, it_nums = self.trainer.train(
             session=sess,
             num_steps=self.val_interval,
             additional_ops=train_ops
         )
-        tb_summaries, sacred_summaries = summaries
+
+        tb_summaries = [s[0] for s in summaries]
+        sacred_summaries = [s[1] for s in summaries]
         return tb_summaries, sacred_summaries, it_nums
 
     def _val_logs(self, sess):
         """Create validation logs.
         """
-        val = [self.tb_logger.train_summary_op,
-                     self.sacred_logger.train_summary_op]
+        val_ops = [self.tb_logger.train_summary_op,
+                   self.sacred_logger.train_summary_op]
+
         summaries = sess.run(
-            self.tb_logger.val_summary_op,
+            val_ops,
             feed_dict={self.model.is_training: False}
             )
+
         tb_summaries, sacred_summaries = summaries
         return tb_summaries, sacred_summaries
 
@@ -277,9 +282,11 @@ class SacredExperiment(NetworkExperiment):
 
         tb_summaries, sacred_summaries, it_nums = self._train_steps(sess)
         self.tb_logger.log_multiple(tb_summaries, it_num)
-        self.sacred_logger.log_multiple(sacred_summaries)
+        self.sacred_logger.log_multiple(sacred_summaries, run=_run)
         
         val_tb_summaries, val_sacred_summaries = self._val_logs(sess)
-        self.tb_logger.log(val_summaries, it_num[-1], log_type='val')
-        self.sacred_logger.log(val_sacred_summaries, log_type='val')
+        self.tb_logger.log(val_summaries, it_num[-1], log_type='val', run=_run)
+        self.sacred_logger.log(val_sacred_summaries, log_type='val', run=_run)
 
+    def _get_sacred_logger(self, sacred_dict):
+        return SacredLogger(self.evaluator, log_dir=self.log_dir, **sacred_dict)
