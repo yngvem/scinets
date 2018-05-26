@@ -7,38 +7,39 @@ __email__ = 'yngve.m.moe@gmail.com'
 
 import tensorflow as tf
 from pathlib import Path
+from copy import deepcopy
     
 
 class BaseLogger:
-    def __init__(self, evaluator, log_dict=None, train_log_dict=None,
-                 val_log_dict=None):
+    def __init__(self, evaluator, log_dicts=None, train_log_dicts=None,
+                 val_log_dicts=None):
         """Superclass for loggers.
 
         Parameters
         ----------
         network : SciNets.utils.Evaluator
             Network instance to log from
-        log_dict : dict
-            Dictionary specifying the logs that should be logged using both
-            training data and validation data.
-        train_log_dict : dict
-            Dictionary specifying the logs that should be logged using only
-            training data.
-        val_log_dict : dict
-            Dictionary specifying the logs that should be logged using only
-            validation data.
+        log_dicts : list
+            List of dictionaries specifying the logs that should be logged using 
+            only training data and validation data.
+        train_log_dicts : list
+            List of dictionaries specifying the logs that should be logged using 
+            only training data.
+        val_log_dicts : list
+            List of dictionaries specifying the logs that should be logged using 
+            only validation data.
         """
         # Set default values
-        log_dict = {} if log_dict is None else log_dict
-        train_log_dict = {} if train_log_dict is None else train_log_dict
-        val_log_dict = {} if val_log_dict is None else val_log_dict
+        log_dicts = [] if log_dicts is None else log_dicts
+        train_log_dicts = [] if train_log_dicts is None else train_log_dicts
+        val_log_dicts = [] if val_log_dicts is None else val_log_dicts
 
         # Set logging parameters
         self.evaluator = evaluator
         self.network = evaluator.network
-        self.log_dict = log_dict
-        self.train_log_dict = train_log_dict
-        self.val_log_dict = val_log_dict
+        self.log_dicts = log_dicts
+        self.train_log_dicts = train_log_dicts
+        self.val_log_dicts = val_log_dicts
     
     def _get_log_var(self, var_name):
         """Gets the TensorFlow variable to log.
@@ -64,31 +65,33 @@ class BaseLogger:
                     'in its parameter dictionary.'
             )
 
-    def _init_logs(self, log_dict):
+    def _init_logs(self, log_dicts):
         """Initiate the logging operators specified in `log_dict`.
 
         Parameters:
         -----------
-        log_dict : dict
-            Dictionary specifying the kind of logs to create. See `__init__`
-            docstring for examples.
+        log_dicts : list
+            List of dictionaries specifying the kind of logs to create.
+            See `__init__` docstring for examples.
 
         Returns:
         --------
         list : List with all logging operators.
         """
         log_list = []
-        for var_name, logs_params in log_dict.items():
+        for log_dict in log_dicts:
+            var_name = log_dict['log_var']
             log_var = self._get_log_var(var_name)
 
             with tf.name_scope(var_name):
-                for log_params in logs_params:
-                    if 'kwargs' not in log_params:
-                        log_params['kwargs'] = {}
+                if 'log_kwargs' not in log_dict:
+                    log_dict['log_kwargs'] = {}
 
-                    log_list.append(
-                        self._init_log(log_var=log_var, **log_params)
-                    )
+                log_dict = deepcopy(log_dict)
+                log_dict['log_var'] = log_var
+                log_list.append(
+                    self._init_log(**log_dict) 
+                )
         return log_list
 
     def _init_log(self, log_var, *args, **kwargs):
@@ -136,9 +139,9 @@ class BaseLogger:
 
 
 class TensorboardLogger(BaseLogger):
-    def __init__(self, evaluator, log_dict=None, train_log_dict=None,
-                 val_log_dict=None, log_dir='./logs'):
-        """Initiates a network logger.
+    def __init__(self, evaluator, log_dicts=None, train_log_dicts=None,
+                 val_log_dicts=None, log_dir='./logs'):
+        """Initiates a TensorBoard logger.
 
         Summary operators are created according to the parameters specified
         in the `log_dict`, `train_log_dict` and `val_log_dict` dictionaries.
@@ -149,57 +152,79 @@ class TensorboardLogger(BaseLogger):
         respectively. The structure of the dictionaries are as follows:
             ```
             {
-                'first_log_var': {'log_name': 'Name of log 1',
-                                  'log_types': ['first_log_type',
-                                                'second_log_type']},
-                'second_log_var': {'log_name': 'Name of log 2',
-                                   'log_types': ['third_log_type']}
+                {'log_name': 'Name of log 1',
+                 'log_var': 'first_log_var',
+                 'log_types': 'first_log_type'},
+
+                {'log_name': 'Name of log 2',
+                 'log_var': 'first_log_var',
+                 'log_types': 'second_log_type'},
+
+                {'log_name': 'Name of log 3',
+                 'log_var': 'second_log_var',
+                 'log_types': 'third_log_type'}
             }
             ```
         The keys of the dictionaries are the name of the variables that we
         want to log. For example, if you want to log the loss of the network,
-        this should the key should simply be 'loss'. First, the network instance
-        is scanned to see if there is a variable with such a name, then,
-        if the network has no variable with the specified name, the parameters
-        dictionary of the network is checked. Below is an example of how the
+        this should the key should simply be 'loss'. First, the evaluator 
+        instance is scanned for variable with the specified name (in this case, 
+        `loss`), then, if no variable with that name is found the network 
+        instance is scanned. Finally, if there is no variable with the 
+        specified name in the network instance the trainable parameters of the 
+        network is scanned. 
+        
+        Below is an example of how the
         `log_dict` dictionary might look.
             ```
-            {
-                'loss': {'log_name': 'Loss',
-                        'log_types': ['line']},
+            [
+                {'log_name': 'Loss',
+                 'log_var': 'loss',
+                 'log_type': 'line'},
 
-                'out': {'log_name': 'Predictions',
-                        'log_types': ['histogram', 'image']},
+                {'log_name': 'Predictions',
+                 'log_var': 'out',
+                 'log_type': 'histogram'},
+
+                {'log_name': 'Predictions',
+                 'log_var': 'out',
+                 'log_type': 'image'},
+
+                {'log_name': 'Conv1',
+                 'log_var': 'conv1/weights',
+                 'log_type': 'histogram'},
                 
-                'conv1/weights': {'log_name': 'Conv1',
-                                'log_types': ['histogram'] },
-                
-                'conv2/bias': {'log_name': 'Conv2',
-                            'log_types': ['histogram', 'image']}
-            }
+                {'log_name': 'Conv2',
+                 'log_var': 'conv2/bias',
+                 'log_type': 'histogram'}
+
+                {'log_name': 'Conv2',
+                 'log_var': 'conv2/bias',
+                 'log_type': 'image'}
+            ]
             ```
         
         Parameters
         ----------
         network : model.NeuralNet
             Network instance to log from
-        log_dict : dict
-            Dictionary specifying the logs that should be logged using both
-            training data and validation data.
-        train_log_dict : dict
-            Dictionary specifying the logs that should be logged using only
-            training data.
-        val_log_dict : dict
-            Dictionary specifying the logs that should be logged using only
-            validation data.
+        log_dicts : list
+            List of dictionaries specifying the logs that should be logged using 
+            both training data and validation data.
+        train_log_dicts : list
+            List of dictionaries specifying the logs that should be logged using 
+            only training data.
+        val_log_dicts : list
+            List of dictionaries specifying the logs that should be logged using
+            only validation data.
         log_dir : str or pathlib.Path
             The directory to store the logs in.
         """
         super().__init__(
             evaluator=evaluator,
-            log_dict=log_dict,
-            train_log_dict=train_log_dict,
-            val_log_dict=val_log_dict
+            log_dicts=log_dicts,
+            train_log_dicts=train_log_dicts,
+            val_log_dicts=val_log_dicts
         )
 
         # Prepare for file writers
@@ -213,9 +238,9 @@ class TensorboardLogger(BaseLogger):
             self.train_summary_op, self.val_summary_op = self._init_merged_logs()
 
     def _init_merged_logs(self):
-        both_summary_ops = self._init_logs(self.log_dict)
-        train_summary_ops = self._init_logs(self.train_log_dict)
-        val_summary_ops = self._init_logs(self.val_log_dict)
+        both_summary_ops = self._init_logs(self.log_dicts)
+        train_summary_ops = self._init_logs(self.train_log_dicts)
+        val_summary_ops = self._init_logs(self.val_log_dicts)
         
         train_summary_op = tf.summary.merge(
             both_summary_ops + train_summary_ops
@@ -225,32 +250,6 @@ class TensorboardLogger(BaseLogger):
         )
         return train_summary_op, val_summary_op
 
-    def _init_logs(self, log_dict):
-        """Initiate the logging operators specified in `log_dict`.
-
-        Parameters:
-        -----------
-        log_dict : dict
-            Dictionary specifying the kind of logs to create. See `__init__`
-            docstring for examples.
-
-        Returns:
-        --------
-        list : List with all logging operators.
-        """
-        log_list = []
-        for var_name, logs_params in log_dict.items():
-            log_var = self._get_log_var(var_name)
-
-            with tf.name_scope(var_name):
-                for log_params in logs_params:
-                    if 'log_kwargs' not in log_params:
-                        log_params['log_kwargs'] = {}
-
-                    log_list.append(
-                        self._init_log(log_var=log_var, **log_params)
-                    )
-        return log_list
 
     def _init_log(self, log_var, log_type, log_name, log_kwargs):
         """Create a specific log operator.
@@ -363,6 +362,52 @@ class TensorboardLogger(BaseLogger):
 class SacredLogger(BaseLogger):
     def __init__(self, evaluator, log_dict=None, train_log_dict=None,
                  val_log_dict=None):
+        """Initiate a Sacred logger.
+
+
+        Summary operators are created according to the parameters specified
+        in the `log_dict`, `train_log_dict` and `val_log_dict` dictionaries.
+        The `log_dict` dictionary contains the parameters that should be
+        logged both with training and validation data, whereas the 
+        `train_log_dict` and the `val_log_dict` specifies the summaries that
+        should be created for only the training data and validation data 
+        respectively. The structure of the dictionaries are as follows:
+            ```
+            {
+                'first_log_var': {'log_name': 'Name of log 1'},
+                'second_log_var': {'log_name': 'Name of log 2'}
+            }
+            ```
+        The keys of the dictionaries are the name of the variables that we
+        want to log. For example, if you want to log the loss of the network,
+        this should the key should simply be `'loss'`. First, the evaluator 
+        instance is scanned for variable with the specified name (in this case, 
+        `loss`), then, if no variable with that name is found the network 
+        instance is scanned. Finally, if there is no variable with the 
+        specified name in the network instance the trainable parameters of the 
+        network is scanned. 
+        
+        Below is an example of how the
+        `log_dict` dictionary might look.
+            ```
+            {
+                'loss': {'log_name': 'Loss'},
+
+                'accuracy': {'log_name': 'Accuracy'},
+            }
+            ```
+
+        Parameters:
+        -----------
+        evaluator : utils.Evaluator
+            The network evaluator to log from. 
+        log_dict : dict
+            Logging dictionary used for both training and validation logs.
+        train_log_dict: dict
+            Logging dictionary used for training logs.
+        val_log_dict: dict
+            Logging dictionary used for validation logs. 
+        """
         super().__init__(
             evaluator=evaluator,
             log_dict=log_dict,
@@ -385,7 +430,7 @@ class SacredLogger(BaseLogger):
         dict : Dictionary with log names as keys and logging operators as values.
         """
         out_log_dict = []
-        for log_var, log_name in log_dict.items():
+        for log_var, log_dict in log_dict.items():
             log_var = self._get_log_var(log_var)
             out_log_dict[log_name] = self._init_log(log_var=log_var)
             
