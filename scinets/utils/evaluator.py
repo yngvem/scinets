@@ -21,12 +21,11 @@ class ClassificationEvaluator:
             self.prediction = self._init_prediction()
             self.accuracy = self._init_accuracy()
 
-    
     def _init_probabilities(self):
         final_activation = self.network.architecture[-1]['activation']
         if (final_activation == 'sigmoid'):
             return self.out
-        
+
         with tf.variable_scope('probabilities'):
             return tf.nn.sigmoid(self.out)
 
@@ -48,11 +47,12 @@ class ClassificationEvaluator:
                 tf.cast(
                     tf.equal(self.prediction, self.target),
                     tf.float32
-                )
+                ),
+                axis=tf.range(1, tf.rank(self.prediction))
             )
         return accuracy
 
-    
+
 class BinaryClassificationEvaluator(ClassificationEvaluator):
     def __init__(self, network, scope='evaluator'):
         super().__init__(network, scope)
@@ -69,21 +69,25 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
     def _init_true_positives(self):
         with tf.variable_scope('true_positives'):
             return tf.count_nonzero(self.prediction * self.target,
+                                    axis=tf.range(1, tf.rank(self.prediction)),
                                     dtype=tf.float32)
 
     def _init_true_negatives(self):
         with tf.variable_scope('true_negatives'):
             return tf.count_nonzero((self.prediction - 1) * (self.target - 1),
+                                    axis=tf.range(1, tf.rank(self.prediction)),
                                     dtype=tf.float32)
 
     def _init_false_positives(self):
         with tf.variable_scope('fasle_positives'):
             return tf.count_nonzero(self.prediction * (self.target - 1),
+                                    axis=tf.range(1, tf.rank(self.prediction)),
                                     dtype=tf.float32)
 
     def _init_false_negatives(self):
         with tf.variable_scope('false_negatives'):
             return tf.count_nonzero((self.prediction - 1) * self.target,
+                                    axis=tf.range(1, tf.rank(self.prediction)),
                                     dtype=tf.float32)
 
     def _init_precision(self):
@@ -100,6 +104,6 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
                     /(self.precision + self.recall)
         return dice
 
+
 if __name__ == '__main__':
     pass
-
