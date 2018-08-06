@@ -8,7 +8,6 @@ __email__ = 'yngve.m.moe@gmail.com'
 
 
 import numpy as np
-import tftables
 import h5py
 import tensorflow as tf
 from contextlib import contextmanager
