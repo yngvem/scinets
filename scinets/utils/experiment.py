@@ -3,25 +3,25 @@ import sacred
 from pathlib import Path
 from ..model import model
 from ..trainer import NetworkTrainer
-from ..utils import TensorboardLogger
+from ..utils import TensorboardLogger, SacredLogger
 from ..utils import evaluator
 from ..utils import HDFReader
 
 
 class NetworkExperiment:
-    def __init__(self, experiment_params, model_params, dataset_params, 
+    def __init__(self, experiment_params, model_params, dataset_params,
                  trainer_params, log_params):
         """
-        experiment_parms={
+        experiment_parms = {
             'log_dir': './',
             'name': 'test_experiment',
             'continue_old': False,
             'num_steps': 10000
         }
 
-        model_params={
+        model_params = {
             'type': 'NeuralNet',
-            'network_params: {
+            'model_params: {
                 'loss_function': 'sigmoid_cross_entropy_with_logits',
                 'loss_kwargs': {},
                 'architecture': [
@@ -59,7 +59,7 @@ class NetworkExperiment:
             }
         }
 
-        log_params={
+        log_params = {
             'val_interval': 1000,
             'evaluator': BinaryClassificationEvaluator,
             'tb_params':
@@ -78,20 +78,20 @@ class NetworkExperiment:
                 }
         }
 
-        trainer_params={
-            train_op: 'AdamOptimizer',
-            train_op_kwargs: None,
-            max_checkpoints: 10,
-            save_step: 10,
-            verbose: True
-        }
+        trainer_params = {
+                'train_op': 'AdamOptimizer',
+                'train_op_kwargs': None,
+                'max_checkpoints': 10,
+                'save_step': 10,
+                'verbose': True
+            }
         """
         # Set experiment properties
         self.log_dir = self._get_logdir(experiment_params)
         self.continue_old = self._get_continue_old(experiment_params)
         self.name = self._get_name(experiment_params)
         self.val_interval = log_params['val_log_frequency']
-        
+
         # Create TensorFlow objects
         self.dataset, self.epoch_size = self._get_dataset(dataset_params)
         self.model = self._get_model(model_params)
@@ -100,7 +100,7 @@ class NetworkExperiment:
         self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
 
         self.train(experiment_params['num_steps'])
-    
+
     def _get_continue_old(self, experiment_params):
         """Extract whether an old experiment should be continued.
         """
@@ -121,12 +121,12 @@ class NetworkExperiment:
         name = experiment_params['name']
         if self.continue_old:
             return name
-        
+
         i = 0
         while self._name_taken(f'{name}_{i:02d}'):
             i += 1
         return f'{name}_{i:02d}'
-    
+
     def _name_taken(self, name):
         """Checks if the given name is taken.
         """
@@ -146,7 +146,7 @@ class NetworkExperiment:
             name=self.name,
             **model_params['network_params']
         )
-    
+
     def _get_trainer(self, trainer_params):
         return NetworkTrainer(
             self.model,
@@ -174,7 +174,7 @@ class NetworkExperiment:
             self.trainer.load_state(sess)
         self.tb_logger.init_file_writers(sess)
 
-    def _train_its(self, sess, *args, **kwargs):
+    def _train_its(self, sess):
         """Perform `self.val_interval` train steps and log validation metrics.
         """
         train_summaries, it_num = self.trainer.train(
@@ -191,52 +191,59 @@ class NetworkExperiment:
             )
         self.tb_logger.log(val_summaries, it_num[-1], log_type='val')
 
-    def train(self, num_steps, *args, **kwargs):
+    def train(self, num_steps):
         """Train the specified model for the given number of steps.
         """
         num_vals = num_steps//self.val_interval
         with tf.Session() as sess:
             self._init_session(sess)
             for i in range(num_vals):
-                self._train_its(sess, *args, **kwargs)
+                self._train_its(sess)
 
 
-class SacredExperiment(NetworkExperiment):
-    def __init__(self, experiment_params, network_params, dataset_params, 
-                 trainer_params, log_params):
+class OldSacredExperiment(NetworkExperiment):
+    def __init__(self, experiment_params, model_params, dataset_params,
+                 trainer_params, log_params, database_params, _run):
         # Set experiment properties
         self.log_dir = self._get_logdir(experiment_params)
         self.continue_old = self._get_continue_old(experiment_params)
         self.name = self._get_name(experiment_params)
         self.val_interval = log_params['val_log_frequency']
-        
-        # Prepare for sacred:
+
+        # Store parameters
+        self.experiment_params = experiment_params
+        self.model_params = model_params
+        self.dataset_params = dataset_params
+        self.trainer_params = trainer_params
+        self.log_params = log_params
+
+        # Prepare for sacred
         self.sacred_ex = sacred.Experiment(self.name, interactive=True)
-        self.connect_to_database(experiment_params['database_params'])
-        self.sacred_cfg = self.sacred_config(self.sacred_ex, experiment_params,
-                                             network_params, dataset_params,
-                                             trainer_params, log_params)
+        self.connect_to_database(self.sacred_ex, database_params)
+        self.sacred_cfg = self.sacred_config(self.sacred_ex)
         self.main = self.sacred_main(self.sacred_ex)
 
-    def connect_to_database(self, database_params):
-        ex.observers.append(
+    def connect_to_database(self, experiment, database_params):
+        experiment.observers.append(
             sacred.observers.MongoObserver.create(**database_params)
         )
 
-    def sacred_cfg(self, experiment, experiment_params, network_params,
-                   dataset_params, trainer_params, log_params):
-        @experiment.config
+    def sacred_config(self, experiment):
         def cfg():
-            experiment_params = experiment_params
-            network_params = network_params
-            dataset_params = dataset_params
-            trainer_params = trainer_params
-            log_params = log_params
-            
+            pass
+        
+        experiment.config(cfg)
+        return cfg
+
     def sacred_main(self, experiment):
-        @experiment.automain
-        def main(_run, experiment_params, network_params, dataset_params,
-                 trainer_params, log_params):
+        @experiment.main
+        def main(_run):
+            experiment_params = self.experiment_params
+            model_params = self.model_params
+            dataset_params = self.dataset_params
+            trainer_params = self.trainer_params
+            log_params = self.log_params
+
             self.dataset, self.epoch_size = self._get_dataset(dataset_params)
             self.model = self._get_model(model_params)
             self.trainer = self._get_trainer(trainer_params)
@@ -244,7 +251,8 @@ class SacredExperiment(NetworkExperiment):
             self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
             self.sacred_logger = self._get_sacred_logger(log_params['sacred_params'])
 
-            self.train(experiment_params['train_steps'], _run)
+            self.train(experiment_params['num_steps'], _run)
+        return main
 
     def _train_steps(self, sess):
         """Perform `self.val_interval` train steps.
@@ -268,25 +276,177 @@ class SacredExperiment(NetworkExperiment):
         val_ops = [self.tb_logger.train_summary_op,
                    self.sacred_logger.train_summary_op]
 
-        summaries = sess.run(
+        tb_summaries, sacred_summaries = sess.run(
             val_ops,
             feed_dict={self.model.is_training: False}
             )
 
-        tb_summaries, sacred_summaries = summaries
         return tb_summaries, sacred_summaries
 
-    def _train_its(self, sess, _run, *args, **kwargs):
+    def _train_its(self, sess, _run):
         """Perform `self.val_interval` train steps and log validation metrics.
         """
 
         tb_summaries, sacred_summaries, it_nums = self._train_steps(sess)
-        self.tb_logger.log_multiple(tb_summaries, it_num)
-        self.sacred_logger.log_multiple(sacred_summaries, run=_run)
-        
+        self.tb_logger.log_multiple(tb_summaries, it_nums)
+        self.sacred_logger.log_multiple(sacred_summaries, it_nums=it_nums, _run=_run)
+
         val_tb_summaries, val_sacred_summaries = self._val_logs(sess)
-        self.tb_logger.log(val_summaries, it_num[-1], log_type='val', run=_run)
-        self.sacred_logger.log(val_sacred_summaries, log_type='val', run=_run)
+        self.tb_logger.log(val_tb_summaries, it_nums[-1], log_type='val')
+        self.sacred_logger.log(val_sacred_summaries, it_num=it_nums[-1],
+                               log_type='val', _run=_run)
 
     def _get_sacred_logger(self, sacred_dict):
-        return SacredLogger(self.evaluator, log_dir=self.log_dir, **sacred_dict)
+        return SacredLogger(self.evaluator, **sacred_dict)
+
+    def train(self, num_steps, _run):
+        """Train the specified model for the given number of steps.
+        """
+        num_vals = num_steps//self.val_interval
+        with tf.Session() as sess:
+            self._init_session(sess)
+            for i in range(num_vals):
+                self._train_its(sess, _run)
+
+
+class SacredExperiment(NetworkExperiment):
+    def __init__(self, _run, experiment_params, model_params, dataset_params,
+                 trainer_params, log_params):
+        """
+        experiment_parms = {
+            'log_dir': './',
+            'name': 'test_experiment',
+            'continue_old': False,
+            'num_steps': 10000
+        }
+
+        model_params = {
+            'type': 'NeuralNet',
+            'model_params: {
+                'loss_function': 'sigmoid_cross_entropy_with_logits',
+                'loss_kwargs': {},
+                'architecture': [
+                    {
+                        'layer': 'conv2d',
+                        'scope': 'conv1',
+                        'out_size': 8,
+                        'k_size': (5, 1),
+                        'batch_norm': True,
+                        'activation': 'relu',
+                        'regularizer': {
+                            'function': 'weight_decay',
+                            'arguments': {
+                                'amount': 0.5,
+                                'name': 'weight_decay'
+                            }
+                        }
+                    },
+                    {
+                        'layer': 'conv2d',
+                        'scope': 'conv2',
+                        'out_size': 16,
+                        'k_size': 5,
+                        'strides': 2,
+                        'batch_norm': True,
+                        'activation': 'relu',
+                    },
+                    {
+                        'layer': 'conv2d',
+                        'scope': 'conv3',
+                        'out_size': 16,
+                    }
+                ]
+                'verbose': True,
+            }
+        }
+
+        log_params = {
+            'val_interval': 1000,
+            'evaluator': BinaryClassificationEvaluator,
+            'tb_params':
+                {
+                    'log_dict': None,
+                    'train_log_dict': None,         (optional)
+                    'val_log_dict': None,           (optional)
+                    'train_collection': None,       (optional)
+                    'val_collection': None          (optional)
+                },
+            'sacredboard_params':
+                {
+                    'log_dict': None,
+                    'train_log_dict': None,         (optional)
+                    'val_log_dict': None,           (optional)
+                }
+        }
+
+        trainer_params = {
+                'train_op': 'AdamOptimizer',
+                'train_op_kwargs': None,
+                'max_checkpoints': 10,
+                'save_step': 10,
+                'verbose': True
+            }
+        """
+        self._run = _run
+        
+        # Set experiment properties
+        self.log_dir = self._get_logdir(experiment_params)
+        self.continue_old = self._get_continue_old(experiment_params)
+        self.name = self._get_name(experiment_params)
+        self.val_interval = log_params['val_log_frequency']
+
+        # Create TensorFlow objects
+        self.dataset, self.epoch_size = self._get_dataset(dataset_params)
+        self.model = self._get_model(model_params)
+        self.trainer = self._get_trainer(trainer_params)
+        self.evaluator = self._get_evaluator(log_params['evaluator'])
+        self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
+        self.sacred_logger = self._get_sacred_logger(log_params['sacred_params'])
+
+        self.train(experiment_params['num_steps'])
+
+    def _train_steps(self, sess):
+        """Perform `self.val_interval` train steps.
+        """
+        train_ops = [self.tb_logger.train_summary_op,
+                     self.sacred_logger.train_summary_op]
+
+        summaries, it_nums = self.trainer.train(
+            session=sess,
+            num_steps=self.val_interval,
+            additional_ops=train_ops
+        )
+
+        tb_summaries = [s[0] for s in summaries]
+        sacred_summaries = [s[1] for s in summaries]
+        return tb_summaries, sacred_summaries, it_nums
+
+    def _val_logs(self, sess):
+        """Create validation logs.
+        """
+        val_ops = [self.tb_logger.train_summary_op,
+                   self.sacred_logger.train_summary_op]
+
+        tb_summaries, sacred_summaries = sess.run(
+            val_ops,
+            feed_dict={self.model.is_training: False}
+            )
+
+        return tb_summaries, sacred_summaries
+
+    def _train_its(self, sess):
+        """Perform `self.val_interval` train steps and log validation metrics.
+        """
+
+        tb_summaries, sacred_summaries, it_nums = self._train_steps(sess)
+        self.tb_logger.log_multiple(tb_summaries, it_nums)
+        self.sacred_logger.log_multiple(sacred_summaries, it_nums=it_nums,
+                                        _run=self._run)
+
+        val_tb_summaries, val_sacred_summaries = self._val_logs(sess)
+        self.tb_logger.log(val_tb_summaries, it_nums[-1], log_type='val')
+        self.sacred_logger.log(val_sacred_summaries, it_num=it_nums[-1],
+                               log_type='val', _run=self._run)
+
+    def _get_sacred_logger(self, sacred_dict):
+        return SacredLogger(self.evaluator, **sacred_dict)
