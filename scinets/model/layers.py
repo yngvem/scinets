@@ -12,14 +12,175 @@ _ver = [int(v) for v in tf.__version__.split('.')]
 keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
 
 
+class BaseLayer:
+    def __init__(self, x, initializer, init_std=1, regularizer, activation,
+                 layer_params=None):
+        if batch_norm == True and is_training is None:
+            raise ValueError(
+                'You have to supply the `is_training` placeholder for batch norm.'
+            )
+        layer_params = layer_params if layer_params is not None else {}
+
+        self.input = x
+
+        initializer, init_str = _generate_initializer(initializer, std=std)
+        activation, act_str = _generate_activation(activation)
+        regularizer, reg_str = _generate_regularizer(regularizer)
+
+        # Build layer
+        with tf.variable_scope(scope) as vscope:
+            self.output, self.params, self.reg_list = self._build_layer(
+                x,
+                activation=activation,
+                initializer=initializer,
+                regularizer=regularizer,
+                **layer_params
+            )
+
+            if verbose:
+                self._print_info()
+
+    def _build_layer(x, activation, initalizer, regularizer, out_size=
+        raise RuntimeError('This should be implemented')
+        out, shape, flattened = _flatten(self.input)
+        out = tf.layers.dense(
+            out,
+            out_size,
+            use_bias=use_bias, 
+            kernel_initializer=initializer,
+            kernel_regularizer=regularizer
+        )
+        out = activation(out)
+
+        if batch_norm:
+            out = tf.layers.batch_normalization(out, training=is_training,
+                                                name='BN')
+
+        # Get variables
+        params, reg_list = _get_returns(vscope)
+        return out, params, reg_list
+
+    def _print_info():
+        raise RuntimeError('This should be implemented!')
+        print(
+            '\n________________Fully connected layer________________\n'
+            'Variable_scope: {}\n'.format(vscope.name),
+            'Flattened input: {}\n'.format(self.flattened),
+            'Kernel initialisation: {}\n'.format(self._init_str),
+            'Activation function: {}\n'.format(self._act_str),
+            'Kernel regularisation: {}\n'.format(self._reg_str),
+            'Number of regularizer loss: {}'.format(len(self.reg_list)),
+            'Use bias: {}\n'.format(self.use_bias),
+            'Use batch normalization: {}\n'.format(self.batch_norm),
+            'Input shape: {}\n'.format(self.input.get_shape().as_list()),
+            'Output shape: {}'.format(self.out.get_shape().as_list())
+        )
+        print(' Parameter shapes:')
+        for pname, param in self.params.items():
+            print('  {}: {}'.format(pname, param.get_shape().as_list()))
+
+    def _generate_initializer(self, initializer, std=1):
+        """Generates an initializer instance from string.
+
+        Parameters
+        ----------
+        initializer : str
+            What initializer to use. Acceptable values are 'he', 'glorot' and
+            'normal' (or 'gaussian').
+        std : float
+            What standard deviation to use (only used if `initializer='normal'`.
+
+        Returns
+        -------
+        init_instance : tf.keras.initializer.Initializer
+        init_str : str
+            A string describing the initialiser returned 
+            (only returned if `generate_string=True`).
+        """
+        if initializer.lower() == 'he':
+            init_str = 'He'
+            init_instance = keras.initializers.he_normal()
+        elif initializer == 'glorot' or initializer == 'xavier':
+            init_str = 'Glorot'
+            init_instance = keras.initializers.glorot_normal()
+        elif initializer == 'normal' or initalizer == 'gaussian':
+            init_str = 'Gaussian - std: {}'.format(std)
+            init_instance = tf.initializers.random_normal(stddev=std)
+        else:
+            raise ValueError(
+                '`initializer` must be the string `he`, `glorot` or `normal`'
+            )
+
+        return init_instance, init_str
+
+    def _generate_activation(self, activation):
+        """Generates an activation function from string.
+
+        Parameters
+        ----------
+        activation : str
+            What initializer to use. Acceptable values are the name of 
+            callables in the `activations.py` file, or None.
+
+        Returns
+        -------
+        act_func : function
+        act_str : str
+            A string describing the initialiser returned 
+            (only returned if `generate_string=True`).
+        """
+        activation = 'linear' if activation is None else activation
+        act_str = str(activation)
+        act_func = getattr(activations, activation)
+
+        return act_func, act_str
+
+    def _generate_regularizer(self, regularizer):
+        """Generates an regularization function from string.
+
+        Parameters
+        ----------
+        regularizer : str
+            What regularizer to use. Acceptable values are the name of callables
+            in the `regularizers.py` file, or None.
+
+        Returns
+        -------
+        reg_func : function
+        reg_str : str
+            A string describing the initialiser returned 
+            (only returned if `generate_string=True`).
+        """
+        if regularizer is None:
+            reg_str = 'No regularization.'
+            reg_func = None
+        else:
+            reg_str = regularizer['function']
+            reg_args = regularizer['arguments']
+            reg_func = lambda x: getattr(regularizers, reg_str)(x, **reg_args)
+
+        return reg_func, reg_str
+
+    def _get_returns(self, scope):
+        """Get the parameters to return from a layer
+        """
+        trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
+                                      scope=scope.name)
+        params = {
+            '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
+        }
+        reg_list = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, 
+                                     scope=scope.name)
+
+        return params, reg_list
+
+
 def _flatten(x, return_flattened=False):
     """Flattens `x` if `x` is not a batch of 1 dimensional vectors.
 
     Parameters
     ----------
     x : tf.Variable
-    return_flattened : bool
-        If True, this function will return whether it flattened the input.
 
     Returns
     -------
@@ -28,7 +189,7 @@ def _flatten(x, return_flattened=False):
     shape : tuple
         The new shape of this tensor.
     flattened : bool
-        Whether `x` was flattened. Not returned if `return_flattened=False`
+        Whether `x` was flattened.
     """
     shape = x.get_shape().as_list()
     if len(shape) > 2:
@@ -41,113 +202,7 @@ def _flatten(x, return_flattened=False):
         out = x
         flattened = False
 
-    return (out, shape, flattened) if return_flattened else (out, shape)
-
-
-def _generate_initializer(initializer, std=1, generate_string=False):
-    """Generates an initializer instance from string.
-
-    Parameters
-    ----------
-    initializer : str
-        What initializer to use. Acceptable values are 'he', 'glorot' and
-        'normal' (or 'gaussian').
-    std : float
-        What standard deviation to use (only used if `initializer='normal'`.
-    generate_string : bool
-        Whether a string describing the initialiser should be returned.
-
-    Returns
-    -------
-    init_instance : tf.keras.initializer.Initializer
-    init_str : str
-        A string describing the initialiser returned 
-        (only returned if `generate_string=True`).
-    """
-    if initializer.lower() == 'he':
-        init_str = 'He'
-        init_instance = keras.initializers.he_normal()
-    elif initializer == 'glorot' or initializer == 'xavier':
-        init_str = 'Glorot'
-        init_instance = keras.initializers.glorot_normal()
-    elif initializer == 'normal' or initalizer == 'gaussian':
-        init_str = 'Gaussian - std: {}'.format(std)
-        init_instance = tf.initializers.random_normal(stddev=std)
-    else:
-        raise ValueError(
-            '`initializer` must be the string `he`, `glorot` or `normal`'
-        )
-
-    return (init_instance, init_str) if generate_string else init_instance
-
-
-def _generate_activation(activation, generate_string=False):
-    """Generates an activation function from string.
-
-    Parameters
-    ----------
-    activation : str
-        What initializer to use. Acceptable values are the name of 
-        callables in the `activations.py` file, or None.
-    generate_string : bool
-        Whether a string describing the activation function should be returned.
-
-    Returns
-    -------
-    act_func : function
-    act_str : str
-        A string describing the initialiser returned 
-        (only returned if `generate_string=True`).
-    """
-    activation = 'linear' if activation is None else activation
-    act_str = str(activation)
-    act_func = getattr(activations, activation)
-
-    return (act_func, act_str) if generate_string else act_func
-
-
-def _generate_regularizer(regularizer, generate_string=False):
-    """Generates an regularization function from string.
-
-    Parameters
-    ----------
-    regularizer : str
-        What regularizer to use. Acceptable values are the name of callables
-        in the `regularizers.py` file, or None.
-    generate_string : bool
-        Whether a string describing the regularization function should be 
-        returned.
-
-    Returns
-    -------
-    reg_func : function
-    reg_str : str
-        A string describing the initialiser returned 
-        (only returned if `generate_string=True`).
-    """
-    if regularizer is None:
-        reg_str = 'No regularization.'
-        reg_func = None
-    else:
-        reg_str = regularizer['function']
-        reg_args = regularizer['arguments']
-        reg_func = lambda x: getattr(regularizers, reg_str)(x, **reg_args)
-
-    return (reg_func, reg_str) if generate_string else reg_func
-
-
-def _get_returns(scope):
-    """Get the parameters to return from a layer
-    """
-    trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
-                                  scope=scope.name)
-    params = {
-        '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
-    }
-    reg_list = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, 
-                                 scope=scope.name)
-
-    return params, reg_list
+    return out, shape, flattened
 
 
 def fc_layer(x, out_size, use_bias=True, initializer='he', std=0.1, 
