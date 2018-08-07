@@ -6,6 +6,7 @@ __email__ = 'yngve.m.moe@gmail.com'
 
 
 import tensorflow as tf
+import numpy as np 
 from pathlib import Path
 from copy import deepcopy
 
@@ -487,8 +488,12 @@ class SacredLogger(BaseLogger):
     def _log(self, summary, it_num, log_type, _run):
         """Logs a single time step.
         """
+        it_num = int(it_num)
         for s_dicts in summary:
             for name, s in s_dicts.items():
+                s = np.mean(s)
+                if np.isnan(s):
+                    s = -1
                 _run.log_scalar(name, s, it_num)
 
 
