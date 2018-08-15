@@ -203,7 +203,7 @@ class NetworkExperiment:
 
 class OldSacredExperiment(NetworkExperiment):
     def __init__(self, experiment_params, model_params, dataset_params,
-                 trainer_params, log_params, database_params, _run):
+                 trainer_params, log_params, database_params):
         # Set experiment properties
         self.log_dir = self._get_logdir(experiment_params)
         self.continue_old = self._get_continue_old(experiment_params)
@@ -222,6 +222,8 @@ class OldSacredExperiment(NetworkExperiment):
         self.connect_to_database(self.sacred_ex, database_params)
         self.sacred_cfg = self.sacred_config(self.sacred_ex)
         self.main = self.sacred_main(self.sacred_ex)
+
+        self.sacred_ex.run_commandline()
 
     def connect_to_database(self, experiment, database_params):
         experiment.observers.append(
