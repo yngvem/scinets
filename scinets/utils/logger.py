@@ -491,6 +491,7 @@ class SacredLogger(BaseLogger):
         it_num = int(it_num)
         for s_dicts in summary:
             for name, s in s_dicts.items():
+                name = "{}_{}".format(name, log_type)
                 s = np.mean(s)
                 if np.isnan(s):
                     s = -1
