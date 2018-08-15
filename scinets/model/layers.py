@@ -188,7 +188,7 @@ class BaseLayer:
         if str(regularizer) == 'None' or regularizer == {}:
             return None, 'No regularization.'
         else:
-            return self._get_operator(normalizers, normalizer)
+            return self._get_operator(regularizers, regularizer)
 
     def _generate_normalizer(self, normalizer):
         """Generates a normalizer from dictionary.
