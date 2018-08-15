@@ -62,7 +62,6 @@ class NeuralNet:
         # Set loss function
         if true_out is not None and loss_function is not None:
             self.set_loss(true_out, loss_function, loss_kwargs=loss_kwargs)
-        
 
     def set_loss(self, true_out, loss_function, true_name='labels', 
                  predicted_name='logits', loss_kwargs=None, **kwargs):
@@ -111,27 +110,27 @@ class NeuralNet:
         if len(self.reg_list) > 0:
             self.reg_op = tf.add_n(self.reg_list, name='regularizers')
 
-    def assemble_layer(self, layer):
+    def assemble_layer(self, layer_dict):
         """Assemble a single layer.
         """
-        layer_func = getattr(layers, layer['layer'])
-        self.out, params, reg_lists = layer_func(
-            self.out,
-            is_training=self.is_training,
-            verbose=self.verbose,
-            **layer
-        )
+        layer_class = getattr(layers, layer_dict['layer'])
+        layer = layer_class(self.out, is_training=self.is_training,
+                            verbose=self.verbose, **layer_dict)
 
-        self.outs[layer['scope']] = self.out
-        self.reg_lists[layer['scope']] = reg_lists
-        for pname, param in params.items():
-            self.params[layer['scope'] + '/' + pname] = param
+        self.layers.append(layer)
+        self.out = layer.output
+
+        self.outs[layer_dict['scope']] = self.out
+        self.reg_lists[layer_dict['scope']] = layer.reg_list
+        for pname, param in layer.params.items():
+            self.params[layer_dict['scope'] + '/' + pname] = param
 
     def build_model(self):
         """Assemble the network.
         """
         self.out = self.input
         self.outs = {'input': self.input}
+        self.layers = []
         self.params = {}
         self.reg_lists = {}
 
