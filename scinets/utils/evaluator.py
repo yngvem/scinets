@@ -3,6 +3,7 @@ __email__ = 'yngve.m.moe@gmail.com'
 
 
 import tensorflow as tf
+import numpy as np
 
 
 class ClassificationEvaluator:
@@ -57,6 +58,7 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
     def __init__(self, network, scope='evaluator'):
         super().__init__(network, scope)
         with tf.variable_scope(scope+'/'):
+            self.num_elements = self._init_num_elements()
             self.true_positives = self._init_true_positives()
             self.true_negatives = self._init_true_negatives()
             self.false_positives = self._init_false_positives()
@@ -66,29 +68,46 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
             self.recall = self._init_recall()
             self.dice = self._init_dice()
 
+    def _init_num_elements(self):
+        with tf.variable_scope('num_elements'):
+            shape = self.out.get_shape().as_list()
+            return np.prod(shape[1:])
+
     def _init_true_positives(self):
         with tf.variable_scope('true_positives'):
-            return tf.count_nonzero(self.prediction * self.target,
-                                    axis=tf.range(1, tf.rank(self.prediction)),
-                                    dtype=tf.float32)
+            true_positives = tf.count_nonzero(
+                self.prediction * self.target,
+                axis=tf.range(1, tf.rank(self.prediction)),
+                dtype=tf.float32
+            )
+            return true_positives/self.num_elements
 
     def _init_true_negatives(self):
         with tf.variable_scope('true_negatives'):
-            return tf.count_nonzero((self.prediction - 1) * (self.target - 1),
-                                    axis=tf.range(1, tf.rank(self.prediction)),
-                                    dtype=tf.float32)
+            true_negatives =  tf.count_nonzero(
+                (self.prediction - 1) * (self.target - 1),
+                axis=tf.range(1, tf.rank(self.prediction)),
+                dtype=tf.float32
+            )
+            return true_negatives/self.num_elements
 
     def _init_false_positives(self):
         with tf.variable_scope('fasle_positives'):
-            return tf.count_nonzero(self.prediction * (self.target - 1),
-                                    axis=tf.range(1, tf.rank(self.prediction)),
-                                    dtype=tf.float32)
+            false_positives = tf.count_nonzero(
+                self.prediction * (self.target - 1),
+                axis=tf.range(1, tf.rank(self.prediction)),
+                dtype=tf.float32
+            )
+            return false_positives/self.num_elements
 
     def _init_false_negatives(self):
         with tf.variable_scope('false_negatives'):
-            return tf.count_nonzero((self.prediction - 1) * self.target,
-                                    axis=tf.range(1, tf.rank(self.prediction)),
-                                    dtype=tf.float32)
+            false_negatives = tf.count_nonzero(
+                (self.prediction - 1) * self.target,
+                axis=tf.range(1, tf.rank(self.prediction)),
+                dtype=tf.float32
+            )
+            return false_negatives/self.num_elements
 
     def _init_precision(self):
         with tf.variable_scope('precision'):
@@ -100,8 +119,9 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
 
     def _init_dice(self):
         with tf.variable_scope('dice'):
-            dice = (2*(self.precision*self.recall)) \
-                    /(self.precision + self.recall)
+            dice = ((2*self.true_positives) 
+                 / (2*self.true_positives + self.false_negatives
+                    + self.false_positives))
         return dice
 
 
