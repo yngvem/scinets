@@ -11,6 +11,7 @@ import numpy as np
 import h5py
 import tensorflow as tf
 from contextlib import contextmanager
+from tensorflow.examples.tutorials.mnist import input_data
 
 
 class HDFData:
@@ -133,7 +134,7 @@ class HDFData:
         return self._next_el_op[2]
 
 
-class HDFReader:
+class HDFDataset:
     def __init__(self, data_path, batch_size, train_group='train', 
                  val_group='validation', test_group='test', dataset='images',
                  target='masks', is_training=None, is_testing=None):
@@ -169,10 +170,8 @@ class HDFReader:
             Placeholder used to specify whether the test or validation data
             should be used. If `is_training` is True, this is ignored.
         """
-        if '__iter__' not in dir(batch_size):  # Check if batch_size is iterable
+        if isinstance(batch_size, int):  # Check if batch_size is iterable
             batch_size = [batch_size]*3
-        self.batch_size = batch_size
-
         if is_training is None:
             is_training = tf.placeholder_with_default(True, shape=[], 
                                                       name='is_training')
@@ -184,6 +183,7 @@ class HDFReader:
         self.is_training = is_training
         self.is_testing = is_testing
         self.batch_size = batch_size
+        
         with tf.variable_scope('data_loader'):
             self.train_data_reader = HDFData(
                 data_path=data_path,
@@ -217,90 +217,200 @@ class HDFReader:
         with tf.variable_scope('test_train_or_val'):
             val_test_data = tf.cond(
                 self.is_testing,
-                true_fn=lambda: self.test_data,
-                false_fn=lambda: self.val_data,
+                true_fn=lambda: self._test_data,
+                false_fn=lambda: self._val_data,
                 name='use_test_data'
             )
-            self.conditional_data = tf.cond(
+            self._conditional_data = tf.cond(
                 self.is_training,
-                true_fn=lambda: self.train_data,
+                true_fn=lambda: self._train_data,
                 false_fn=lambda: val_test_data,
                 name='use_train_data'
             )
 
             val_test_target = tf.cond(
                 self.is_testing,
-                true_fn=lambda: self.test_target,
-                false_fn=lambda: self.val_target,
+                true_fn=lambda: self._test_target,
+                false_fn=lambda: self._val_target,
                 name='use_test_target'
             )
-            self.conditional_target = tf.cond(
+            self._conditional_target = tf.cond(
                 self.is_training,
-                true_fn=lambda: self.train_target,
+                true_fn=lambda: self._train_target,
                 false_fn=lambda: val_test_target,
                 name='use_train_target'
             )
 
             val_test_idxes = tf.cond(
                 self.is_testing,
-                true_fn=lambda: self.test_idxes,
-                false_fn=lambda: self.val_idxes,
+                true_fn=lambda: self._test_idxes,
+                false_fn=lambda: self._val_idxes,
                 name='use_test_idxes'
             )
-            self.conditional_idxes = tf.cond(
+            self._conditional_idxes = tf.cond(
                 self.is_training,
-                true_fn=lambda: self.train_idxes,
+                true_fn=lambda: self._train_idxes,
                 false_fn=lambda: val_test_idxes,
                 name='use_train_idxes'
             )
 
     @property
-    def train_data(self):
-        return self.train_data_reader.images
-    
-    @property
-    def train_target(self):
-        return self.train_data_reader.targets
-
-    @property
-    def train_idxes(self):
-        return self.train_data_reader.idxes
-
-    @property
-    def val_data(self):
-        return self.val_data_reader.images
-    
-    @property
-    def val_target(self):
-        return self.val_data_reader.targets
-
-    @property
-    def val_idxes(self):
-        return self.val_data_reader.idxes
-
-    @property
-    def test_data(self):
-        return self.test_data_reader.images
-    
-    @property
-    def test_target(self):
-        return self.test_data_reader.targets
-
-    @property
-    def test_idxes(self):
-        return self.test_data_reader.idxes
-
-    @property
     def data(self):
-        return self.conditional_data
+        return self._conditional_data
 
     @property
     def target(self):
-        return self.conditional_target
+        return self._conditional_target
 
     @property
     def idxes(self):
-        return self.conditional_idxes
+        return self._conditional_idxes
+
+    @property
+    def _train_data(self):
+        return self.train_data_reader.images
+    
+    @property
+    def _train_target(self):
+        return self.train_data_reader.targets
+
+    @property
+    def _train_idxes(self):
+        return self.train_data_reader.idxes
+
+    @property
+    def _val_data(self):
+        return self.val_data_reader.images
+    
+    @property
+    def _val_target(self):
+        return self.val_data_reader.targets
+
+    @property
+    def _val_idxes(self):
+        return self.val_data_reader.idxes
+
+    @property
+    def _test_data(self):
+        return self.test_data_reader.images
+    
+    @property
+    def _test_target(self):
+        return self.test_data_reader.targets
+
+    @property
+    def _test_idxes(self):
+        return self.test_data_reader.idxes
+
+
+class MNISTDataset(HDFDataset):
+    def __init__(self, batch_size=128, is_training=None, is_testing=None,
+                 name='scope'):
+        if is_training is None:
+            is_training = tf.placeholder_with_default(True, shape=[], 
+                                                      name='is_training')
+        self.is_training = is_training
+        self.batch_size = batch_size
+        self.epoch = 40000
+
+        self._curr_it_num = 0
+        self._data_it_num = 0
+        self._labels_it_num = 0
+        with tf.variable_scope(name):
+            self._train_next_el_op = self._get_next_el_op(self._iterate_train_dataset)
+            self._val_next_el_op = self._get_next_el_op(self._iterate_val_dataset)
+
+            self._create_conditionals()
+
+    def _get_next_el_op(self, generator):
+        dataset = tf.data.Dataset.from_generator(
+            generator=generator,
+            output_types=(tf.int16, tf.float32, tf.float32),
+            output_shapes=([], [self.batch_size, 28, 28, 1],
+                            [self.batch_size, 1, 1, 10])
+        )
+        tf_iterator = dataset.make_one_shot_iterator()
+        return tf_iterator.get_next()
+
+    def _iterate_train_dataset(self):
+        dataset = input_data.read_data_sets('MNIST_data', one_hot=True)
+        while True:
+            x, y = dataset.train.next_batch(self.batch_size)
+            x = x.reshape((self.batch_size, 28, 28, 1))
+            y = y.reshape((self.batch_size, 1, 1, 10))
+            yield 0, x, y
+
+    def _iterate_val_dataset(self):
+        dataset = input_data.read_data_sets('MNIST_data', one_hot=True)
+        while True:
+            x, y = dataset.test.next_batch(self.batch_size)
+            x = x.reshape((self.batch_size, 28, 28, 1))
+            y = y.reshape((self.batch_size, 1, 1, 10))
+            yield 0, x, y
+
+    def _create_conditionals(self):
+        """Set up conditional operators specifying which datasets to use.
+        """
+        with tf.variable_scope('test_train_or_val'):
+            self._conditional_data = tf.cond(
+                self.is_training,
+                true_fn=lambda: self._train_data,
+                false_fn=lambda: self._val_data,
+                name='use_train_data'
+            )
+
+            self._conditional_target = tf.cond(
+                self.is_training,
+                true_fn=lambda: self._train_target,
+                false_fn=lambda: self._val_target,
+                name='use_train_target'
+            )
+
+            self._conditional_idxes = tf.cond(
+                self.is_training,
+                true_fn=lambda: self._train_idxes,
+                false_fn=lambda: self._val_idxes,
+                name='use_train_idxes'
+            )
+
+    @property
+    def data(self):
+        return self._conditional_data
+
+    @property
+    def target(self):
+        return self._conditional_target
+
+    @property
+    def idxes(self):
+        return self._conditional_idxes
+
+    @property
+    def _train_data(self):
+        return self._train_next_el_op[1]
+    
+    @property
+    def _train_target(self):
+        return self._train_next_el_op[2]
+
+    @property
+    def _train_idxes(self):
+        return self._train_next_el_op[0]
+
+    @property
+    def _val_data(self):
+        return self._val_next_el_op[1]
+    
+    @property
+    def _val_target(self):
+        return self._val_next_el_op[2]
+
+    @property
+    def _val_idxes(self):
+        return self._val_next_el_op[0]
+
+
+
 
 
 if __name__ == '__main__':
