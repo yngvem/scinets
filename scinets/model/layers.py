@@ -515,8 +515,6 @@ class ResnetConv2D(BaseLayer):
             kernel_size=k_size,
             use_bias=use_bias,
             kernel_initializer=self.initializer,
-            strides=strides,
-            dilation_rate=dilation_rate,
             padding='SAME',
             kernel_regularizer=self.regularizer,
             name='conv2d_2'
@@ -684,7 +682,7 @@ class BicubicInterpolate(BaseLayer):
     
     def _print_info(self, layer_params):
         print(
-            '______________Linear interpolation layer_____________\n',
+            '______________Bicubic interpolation layer_____________\n',
             'Variable scope: {}\n'.format(self.vscope.name),
             'Input tensor: {}\n'.format(self.input.get_shape().as_list()),
             'Output shape: {}'.format(self.output.get_shape().as_list())
@@ -711,112 +709,27 @@ class NearestNeighborInterpolate(BaseLayer):
     
     def _print_info(self, layer_params):
         print(
-            '______________Linear interpolation layer_____________\n',
+            '______________Nearest interpolation layer_____________\n',
             'Variable scope: {}\n'.format(self.vscope.name),
             'Input tensor: {}\n'.format(self.input.get_shape().as_list()),
             'Output shape: {}'.format(self.output.get_shape().as_list())
         )
 
         
-def bicubic_interpolate(x, rate=2, out_size=None, axis=None,
-                        scope="bicubic_interpolation", verbose=True):
-    """Perform linear interpolation of all input images.
-
-    The input must either be a 4D tensor in the case of 2D images or a 
-    5D tensor in the case of 3D images. No other tensor dimensions are
-    accepted by the TensorFlow interpolation functions.
-
-    Parameters:
-    -----------
-    x1 : tensorflow.Variable
-        The input images.
-    rate : float (optional)
-        The interpolation rate, if this is equal to two, the image size will
-        double, if it is equal to one half, the image size will be halved, etc.
-        This is two as default. Either this or `out_size` must be specified.
-    out_size : Array like (optional)
-        The output size of the images, must have same length as the dimensions
-        of the image. 
-    scope : str
-        The variable scope of this layer.
-    verbose : bool
-        Wether additional layer information should be printed.
-    
-
-    Returns:
-    --------
-    out : tensorflow.Variable
-        Output tensor of this layer
-    params : dict
-        Empty dictionary.
-    reg_list : list
-        Empty list.
-    """
-    with tf.variable_scope(scope) as vscope:
-        shape = x.get_shape.as_list()[1:-1]
-        if out_size is None:
-            out_size = tf.multiply(shape, rate, name="out_size")
-        out = tf.image.resize_images(images, out_size,
-                                     method=tf.image.ResizeMethod.BICUBIC)
-
-        if verbose:
-            print(
-                '______________Bicubic interpolation layer_____________\n',
-                'Variable scope: {}\n'.format(vscope.name),
-                'Input tensor: {}\n'.format(x),
-                'Output shape: {}'.format(out.get_shape().as_list())
-            )
-
-
-def nearest_interpolate(x, rate=2, out_size=None, axis=None,
-                        scope="nearest_interpolation", verbose=True):
-    """Perform linear interpolation of all input images.
-
-    The input must either be a 4D tensor in the case of 2D images or a 
-    5D tensor in the case of 3D images. No other tensor dimensions are
-    accepted by the TensorFlow interpolation functions.
-
-    Parameters:
-    -----------
-    x1 : tensorflow.Variable
-        The input images.
-    rate : float (optional)
-        The interpolation rate, if this is equal to two, the image size will
-        double, if it is equal to one half, the image size will be halved, etc.
-        This is two as default. Either this or `out_size` must be specified.
-    out_size : Array like (optional)
-        The output size of the images, must have same length as the dimensions
-        of the image. 
-    scope : str
-        The variable scope of this layer.
-    verbose : bool
-        Wether additional layer information should be printed.
-    
-
-    Returns:
-    --------
-    out : tensorflow.Variable
-        Output tensor of this layer
-    params : dict
-        Empty dictionary.
-    reg_list : list
-        Empty list.
-    """
-    with tf.variable_scope(scope) as vscope:
-        shape = x.get_shape.as_list()[1:-1]
-        if out_size is None:
-            out_size = tf.multiply(shape, rate, name="out_size")
-
-        out = tf.image.resize_images(
-            images,
-            out_size,
-            method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+class GlobalAveragePool(BaseLayer):
+    def _build_layer(self):
+        out = tf.reduce_mean(
+            self.input,
+            axis=tf.range(1, len(self.input.get_shape().as_list())-1),
+            keepdims=True
         )
 
-        if verbose:
-            print(
-                '__________Nearest neighbour interpolation layer________\n',
-                'Variable scope: {}\n'.format(vscope.name),
-                'Input tensor: {}\n'.format(x),
-                'Output shape: {}'.format(out.get_shape().as_list())
-            )
+        return out, {}, []
+    
+    def _print_info(self, layer_params):
+        print(
+            '______________Global average pool_____________\n',
+            'Variable scope: {}\n'.format(self.vscope.name),
+            'Input tensor: {}\n'.format(self.input.get_shape().as_list()),
+            'Output shape: {}'.format(self.output.get_shape().as_list())
+        )
