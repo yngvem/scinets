@@ -5,7 +5,7 @@ from ..model import model
 from ..trainer import NetworkTrainer
 from ..utils import TensorboardLogger, SacredLogger
 from ..utils import evaluator
-from ..utils import HDFReader
+from ..utils import HDFDataset, MNISTDataset
 
 
 class NetworkExperiment:
@@ -133,7 +133,7 @@ class NetworkExperiment:
         return (self.log_dir/name).is_dir()
 
     def _get_dataset(self, dataset_params):
-        dataset = HDFReader(**dataset_params)
+        dataset = HDFDataset(**dataset_params)
         epoch_size = len(dataset.train_data_reader)
         return dataset, epoch_size
 
@@ -452,3 +452,26 @@ class SacredExperiment(NetworkExperiment):
 
     def _get_sacred_logger(self, sacred_dict):
         return SacredLogger(self.evaluator, **sacred_dict)
+
+
+class MNISTExperiment(NetworkExperiment):
+    def __init__(self, experiment_params, model_params, dataset_params,
+                 trainer_params, log_params):
+
+        # Set experiment properties
+        self.log_dir = self._get_logdir(experiment_params)
+        self.continue_old = self._get_continue_old(experiment_params)
+        self.name = self._get_name(experiment_params)
+        self.val_interval = log_params['val_log_frequency']
+
+        # Create TensorFlow objects
+        self.dataset = MNISTDataset(name='MNIST')
+        self.epoch_size = 40000
+        self.model = self._get_model(model_params)
+        self.trainer = self._get_trainer(trainer_params)
+        self.evaluator = self._get_evaluator(log_params['evaluator'])
+        self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
+
+        self.train(experiment_params['num_steps'])
+
+
