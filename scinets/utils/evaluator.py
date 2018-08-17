@@ -23,9 +23,10 @@ class ClassificationEvaluator:
             self.accuracy = self._init_accuracy()
 
     def _init_probabilities(self):
-        final_activation = self.network.architecture[-1]['activation']
-        if (final_activation == 'sigmoid'):
-            return self.out
+        if 'activation' in self.network.architecture[-1]:
+            final_activation = self.network.architecture[-1]['activation']
+            if (final_activation == 'sigmoid'):
+                return self.out
 
         with tf.variable_scope('probabilities'):
             return tf.nn.sigmoid(self.out)
