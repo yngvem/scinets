@@ -9,6 +9,7 @@ __email__ = 'yngve.m.moe@gmail.com'
 
 from copy import copy
 import tensorflow as tf
+import math as m
 from . import layers
 from . import losses
 
@@ -56,6 +57,12 @@ class NeuralNet:
         self.name = name
 
         # Assemble network
+        self.out = self.input
+        self.outs = {'input': self.input}
+        self.layers = []
+        self.params = {}
+        self.reg_lists = {}
+
         with tf.variable_scope(self.name) as self.vscope:
             self.build_model()
 
@@ -128,11 +135,6 @@ class NeuralNet:
     def build_model(self):
         """Assemble the network.
         """
-        self.out = self.input
-        self.outs = {'input': self.input}
-        self.layers = []
-        self.params = {}
-        self.reg_lists = {}
 
         if self.verbose:
             print('\n'+25*'-'+'Assembling network'+25*'-')
@@ -144,3 +146,81 @@ class NeuralNet:
             print(25*'-'+'Finished assembling'+25*'-'+'\n')
             
         self.collect_regularizers()
+
+
+class UNet(NeuralNet):
+    def __init__(self, input_var, architecture, skip_connections, name=None,
+                 is_training=None, true_out=None, loss_function=None,
+                 loss_kwargs=None, verbose=False):
+        self.skip_connections = skip_connections
+        super().__init__(
+            input_var=input_var,
+            architecture=architecture,
+            name=name,
+            is_training=is_training,
+            true_out=true_out,
+            loss_function=loss_function,
+            loss_kwargs=loss_kwargs,
+            verbose=verbose    
+        )
+
+    def is_skip_connection_target(self, layer):
+        """Returns whether the current layer is the target of a skip connection.
+        """
+        for skip_connection in self.skip_connections:
+            if skip_connection[1] == layer['scope']:
+                return True
+    
+    def get_skip_connection(self, layer):
+        """Returns the skip connection where the given layer is the target.
+        """
+        for i, skip_connection in enumerate(self.skip_connections):
+            if skip_connection[1] == layer['scope']:
+                return i, skip_connection
+
+    def create_skip_connection(self, curr_layer):
+        """Return a the skip connection that ends in the current layer.
+        """
+        skip_id, skip_connection = self.get_skip_connection(curr_layer)
+        with tf.variable_scope('skip_connection_{}'.format(skip_id)) as vscope:
+            self.out = self._safe_concat(
+                self.outs[skip_connection[0]],
+                self.outs[skip_connection[1]],
+            )
+            self.outs[vscope.name] = self.out
+            self.reg_lists[skip_id] = []
+
+    def _safe_concat(self, tensor1, tensor2):
+        tensor1 = self._make_even(tensor1)
+        tensor2 = self._make_even(tensor2)
+        return tf.concat((tensor1, tensor2), axis=-1)
+
+    @staticmethod
+    def _make_even(tensor):
+        shape = tensor.get_shape().as_list()
+        shape = shape[1:-1]
+        for i, s in enumerate(shape):
+            shape[i] = int(2*m.ceil(s/2))
+
+        return tf.image.resize_images(
+            tensor,
+            tf.convert_to_tensor(shape, dtype=tf.int32),
+            method=tf.image.ResizeMethod.BILINEAR
+        ) 
+
+    def build_model(self):
+        """Assemble the network.
+        """
+        if self.verbose:
+            print('\n'+25*'-'+'Assembling network'+25*'-')
+
+        for i, layer in enumerate(self.architecture):
+            self.assemble_layer(layer)
+            if self.is_skip_connection_target(layer):
+                self.create_skip_connection(layer)
+
+        if self.verbose:
+            print(25*'-'+'Finished assembling'+25*'-'+'\n')
+            
+        self.collect_regularizers()
+
