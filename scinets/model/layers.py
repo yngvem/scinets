@@ -407,6 +407,7 @@ class Conv2D(BaseLayer):
             'Output shape: {}'.format(self.output.get_shape().as_list())
         )
 
+
 class ResnetConv2D(BaseLayer):
     def _build_layer(self, out_size, k_size=3, use_bias=True, dilation_rate=1,
                     strides=1, verbose=False):
@@ -653,7 +654,8 @@ class LinearInterpolate(BaseLayer):
                              " must be set.")
 
         out = tf.image.resize_images(self.input, out_size,
-                                     method=tf.image.ResizeMethod.BILINEAR)
+                                     method=tf.image.ResizeMethod.BILINEAR,
+                                     align_corners=True)
         return out, {}, []
     
     def _print_info(self, layer_params):
@@ -676,7 +678,8 @@ class BicubicInterpolate(BaseLayer):
                              " must be set.")
 
         out = tf.image.resize_images(self.input, out_size,
-                                     method=tf.image.ResizeMethod.BICUBIC)
+                                     method=tf.image.ResizeMethod.BICUBIC,
+                                     align_corners=True)
 
         return out, {}, []
     
@@ -702,7 +705,8 @@ class NearestNeighborInterpolate(BaseLayer):
         out = tf.image.resize_images(
             self.input,
             out_size,
-            method=tf.image.ResizeMethod.NEAREST_NEIGHBOR
+            method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
+            align_corners=True
         )
 
         return out, {}, []
