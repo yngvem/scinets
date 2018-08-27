@@ -163,6 +163,7 @@ class NetworkExperiment:
         return TensorboardLogger(
             self.evaluator,
             log_dir=self.log_dir,
+            additional_vars={'learning_rate': self.trainer.learning_rate},
             **tensorboard_params
         )
 
@@ -299,7 +300,11 @@ class OldSacredExperiment(NetworkExperiment):
                                log_type='val', _run=_run)
 
     def _get_sacred_logger(self, sacred_dict):
-        return SacredLogger(self.evaluator, **sacred_dict)
+        return SacredLogger(
+            self.evaluator,
+            additional_vars={'learning_rate': self.trainer.learning_rate},
+            **sacred_dict
+        )
 
     def train(self, num_steps, _run):
         """Train the specified model for the given number of steps.
