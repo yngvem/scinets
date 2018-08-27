@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from . import optimizers
+from . import lr_modifiers
 from pathlib import Path
 from collections import Iterable
 import json
@@ -10,7 +11,7 @@ class NetworkTrainer:
     """Class used to train a network instance.
     """
     def __init__(self, network, epoch_size, log_dir='./logs', 
-                 train_op='AdamOptimizer', train_op_kwargs=None, 
+                 train_op=None, learning_rate_op=None, 
                  max_checkpoints=10, save_step=100, verbose=True):
         """Trainer class for neural networks.
 
@@ -18,6 +19,7 @@ class NetworkTrainer:
         ----------
         network : segmentation_nets.model.NeuralNet
             Network to train.
+        epoch_size : int
         train_op : str
             The name of the training operator to use, must be defined in
             `segmentation_nets.trainer.optimizers`.
@@ -37,17 +39,15 @@ class NetworkTrainer:
         self.epoch_size = epoch_size
         self.save_step = save_step
 
-        self.train_op_name = train_op
-        self.train_op_kwargs = {} if train_op_kwargs is None else train_op_kwargs
+        self.train_op = train_op
 
         self.log_dir = Path(log_dir)/network.name/'checkpoints'
         self.verbose = verbose
 
         with tf.variable_scope('trainer'):
-            self._optimizer, self._train_step = self.init_train_op(
-                train_op,
-                train_op_kwargs
-            )
+            self.init_global_step()
+            self.learning_rate = self.get_learning_rate(learning_rate_op)
+            self._optimizer, self._train_step = self.init_train_op()
             self._checkpoint_saver = self.init_saver(max_checkpoints)
 
     def train(self, session, num_steps, additional_ops=None):
@@ -58,8 +58,8 @@ class NetworkTrainer:
         session : tensorflow.Session
         num_steps : int
             Number of training steps to perform
-        additional_ops : tensorflow.Operator
-            Additional tensorflow operators to run.
+        additional_ops : list
+            List of tensorflow operators to run.
         
         Returns
         -------
@@ -83,8 +83,8 @@ class NetworkTrainer:
         Parameters
         ----------
         session : tensorflow.Session
-        additional_ops : list or tensorflow.Operator
-            Additional tensorflow operators to run.
+        additional_ops : list
+            List of additional tensorflow operators to run.
         feed_dict : dict
             The inputs to the network.
         
@@ -96,12 +96,6 @@ class NetworkTrainer:
             Current iteration number.
         """
         additional_ops = [] if additional_ops is None else additional_ops
-        try:
-            iter(additional_ops)
-            additional_ops = list(additional_ops)
-        except TypeError:
-            additional_ops = [additional_ops]
-        
         run_list = [self._train_step] + additional_ops
         
         feed_dict = {} if feed_dict is None else feed_dict
@@ -149,17 +143,36 @@ class NetworkTrainer:
         """
         return tf.train.Saver(max_to_keep=max_checkpoints)
 
-    def init_train_op(self, train_op, train_op_kwargs=None):
+    def init_global_step(self):
+        """Create the global step variable and its update operator.
+
+        The global step variable counts the number of training steps
+        performed and is automatically updated each iteration.
+        """
+        self.global_step = tf.Variable(self.num_steps, name='global_step')
+        self.update_global_step = self.global_step.assign(self.global_step + 1)
+        tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, self.update_global_step)
+
+    def get_learning_rate(self, lr_op_dict):
+        """Creates a learning rate operator if `lr_op_dict` is given.
+
+        The `lr_op_dict` argument should either be `None` or a dictionary where
+        the key 'operator' maps to the name of the learning rate operator
+        and the key 'arguments' maps to a kwargs dict to be supplied with the
+        operator.
+
+        In addition to the 'arguments' kwargs dict, the keyword argument
+        `global_step=self.global_step` is supplied.
+        """
+        if str(lr_op_dict) == 'None':
+            return None
+        lr_op = getattr(lr_modifiers, lr_op_dict['operator'])
+        lr_op = lr_op(global_step=self.global_step, **lr_op_dict['arguments'])
+        return lr_op
+
+    def init_train_op(self):
         """Set the operator used for weight updates.
 
-        Parameters
-        ----------
-        train_op : str
-            The optimizer to use for weight updates. Must be the name of an 
-            element of the `optimizers.py` file.
-        train_op_kwargs : dict (optional)
-            The keyword arguments for the training operator
-        
         Returns
         -------
         optimizer : tensorflow.Operator
@@ -171,10 +184,20 @@ class NetworkTrainer:
             raise RuntimeError(
                 'The network instance has no loss function.'
             )
-        train_op_kwargs = {} if train_op_kwargs is None else train_op_kwargs
 
-        Optimizer = getattr(optimizers, train_op)
-        optimizer = Optimizer(**train_op_kwargs)
+        if (self.learning_rate is not None and
+                'learning_rate' in self.train_op['arguments']):
+            raise ValueError('The learning rate cannot be set with both a '
+                             'learning rate operator and in the optimizer '
+                             'argument dictionary')
+
+        lr = self.train_op['arguments'].get('learning_rate', self.learning_rate)
+        self.train_op['arguments']['learning_rate'] = lr
+
+        Optimizer = getattr(optimizers, self.train_op['operator'])
+        optimizer = Optimizer(
+            **self.train_op['arguments']
+        )
 
         UPDATE_OPS = tf.GraphKeys.UPDATE_OPS
         with tf.control_dependencies(tf.get_collection(UPDATE_OPS)):
