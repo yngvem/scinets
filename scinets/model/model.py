@@ -190,23 +190,17 @@ class UNet(NeuralNet):
             self.outs[vscope.name] = self.out
             self.reg_lists[skip_id] = []
 
-    def _safe_concat(self, tensor1, tensor2):
-        tensor1 = self._make_even(tensor1)
-        tensor2 = self._make_even(tensor2)
-        return tf.concat((tensor1, tensor2), axis=-1)
-
     @staticmethod
-    def _make_even(tensor):
-        shape = tensor.get_shape().as_list()
-        shape = shape[1:-1]
-        for i, s in enumerate(shape):
-            shape[i] = int(2*m.ceil(s/2))
+    def _safe_concat(first_tensor, second_tensor):
+        size = first_tensor.get_shape().as_list()[1:-1]
+        second_tensor = tf.image.resize_images(
+            second_tensor,
+            size=size,
+            method=tf.image.ResizeMethod.BICUBIC,
+            align_corners=True
+        )
+        return tf.concat((first_tensor, second_tensor), axis=-1)
 
-        return tf.image.resize_images(
-            tensor,
-            tf.convert_to_tensor(shape, dtype=tf.int32),
-            method=tf.image.ResizeMethod.BILINEAR
-        ) 
 
     def build_model(self):
         """Assemble the network.
