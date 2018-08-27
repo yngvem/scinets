@@ -12,7 +12,7 @@ from copy import deepcopy
 
 
 class BaseLogger:
-    def __init__(self, evaluator, log_dicts=None, train_log_dicts=None,
+    def __init__(self, evaluator, additional_vars=None, log_dicts=None, train_log_dicts=None,
                  val_log_dicts=None):
         """Superclass for loggers.
 
@@ -29,7 +29,13 @@ class BaseLogger:
         val_log_dicts : list
             List of dictionaries specifying the logs that should be logged using
             only validation data.
+        additional_vars : dict
+            Dictionary of additional variables that can be logged.
         """
+        if additional_vars is None:
+            additional_vars = {}
+        self.additional_vars = additional_vars
+
         # Set default values
         log_dicts = [] if log_dicts is None else log_dicts
         train_log_dicts = [] if train_log_dicts is None else train_log_dicts
@@ -45,16 +51,21 @@ class BaseLogger:
     def _get_log_var(self, var_name):
         """Gets the TensorFlow variable to log.
 
-        This function firsts checks if the given variable is an attribute
-        of the network to be logged. If it is not, it checks in the parameters
-        dictionary. An AttributeError is raised if the variable can't be found.
+        This function firsts checks the `additional_vars` dict for the given
+        variable, next it checks the evaluator if it is an attribute before
+        checking the network that is logged. Finally, it checks in the parameters
+        dictionary of the network.
+        
+        An AttributeError is raised if the variable can't be found.
 
         Attributes
         ----------
         var_name : str
             Name of the variable to get.
         """
-        if hasattr(self.evaluator, var_name):
+        if var_name in self.additional_vars:
+            return self.additional_vars[var_name]
+        elif hasattr(self.evaluator, var_name):
             return getattr(self.evaluator, var_name)
         elif hasattr(self.network, var_name):
             return getattr(self.network, var_name)
@@ -135,8 +146,8 @@ class BaseLogger:
 
 
 class TensorboardLogger(BaseLogger):
-    def __init__(self, evaluator, log_dicts=None, train_log_dicts=None,
-                 val_log_dicts=None, log_dir='./logs'):
+    def __init__(self, evaluator, additional_vars=None, log_dicts=None, 
+                 train_log_dicts=None, val_log_dicts=None, log_dir='./logs'):
         """Initiates a TensorBoard logger.
 
         Summary operators are created according to the parameters specified
@@ -218,6 +229,7 @@ class TensorboardLogger(BaseLogger):
         """
         super().__init__(
             evaluator=evaluator,
+            additional_vars=additional_vars,
             log_dicts=log_dicts,
             train_log_dicts=train_log_dicts,
             val_log_dicts=val_log_dicts
