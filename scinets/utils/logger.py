@@ -146,8 +146,9 @@ class BaseLogger:
 
 
 class TensorboardLogger(BaseLogger):
-    def __init__(self, evaluator, additional_vars=None, log_dicts=None, 
-                 train_log_dicts=None, val_log_dicts=None, log_dir='./logs'):
+    def __init__(self, evaluator, log_all_params=False, additional_vars=None,
+                 log_dicts=None, train_log_dicts=None, val_log_dicts=None,
+                 log_dir='./logs'):
         """Initiates a TensorBoard logger.
 
         Summary operators are created according to the parameters specified
@@ -227,6 +228,10 @@ class TensorboardLogger(BaseLogger):
         log_dir : str or pathlib.Path
             The directory to store the logs in.
         """
+        if log_all_params:
+            train_log_dicts = self._extend_with_params(train_log_dicts,
+                                                       evaluator.network)
+
         super().__init__(
             evaluator=evaluator,
             additional_vars=additional_vars,
@@ -244,6 +249,22 @@ class TensorboardLogger(BaseLogger):
 
         with tf.name_scope('summaries'):
             self.train_summary_op, self.val_summary_op = self._init_merged_logs()
+    
+    @staticmethod
+    def _extend_with_params(train_log_dicts, model):
+        if str(train_log_dicts) == 'None':
+            train_log_dicts = {}
+
+        log_generator1 = (
+            {'log_name': log_var, 'log_var': log_var, 'log_type': 'histogram'}
+                for log_var in model.params
+        )
+        log_generator2 = (
+            {'log_name': 'gradients_'+log_var, 'log_var': log_var,
+             'log_type': 'gradient_histogram'}
+                for log_var in model.params if 'kernel' in log_var
+        )
+        return (*tuple(train_log_dicts), *log_generator1, *log_generator2)
 
     def _init_merged_logs(self):
         both_summary_ops = self._init_logs(self.log_dicts)
@@ -282,7 +303,7 @@ class TensorboardLogger(BaseLogger):
             log_kwargs = {}
 
         log_function = getattr(self, '_create_'+log_type+'_log')        
-        with tf.name_scope(var_name):
+        with tf.name_scope(var_name.replace(':', '_')):
             return log_function(
                 log_name=log_name,
                 log_var=log_var,
