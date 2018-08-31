@@ -1,6 +1,7 @@
 import tensorflow as tf
 import sacred
 from pathlib import Path
+from tqdm import trange
 from ..model import model
 from ..trainer import NetworkTrainer
 from ..utils import TensorboardLogger, SacredLogger
@@ -16,7 +17,7 @@ class NetworkExperiment:
             'log_dir': './',
             'name': 'test_experiment',
             'continue_old': False,
-            'num_steps': 10000
+            'verbose': True
         }
 
         model_params = {
@@ -55,7 +56,6 @@ class NetworkExperiment:
                         'out_size': 16,
                     }
                 ]
-                'verbose': True,
             }
         }
 
@@ -83,7 +83,6 @@ class NetworkExperiment:
                 'train_op_kwargs': None,
                 'max_checkpoints': 10,
                 'save_step': 10,
-                'verbose': True
             }
         """
         # Set experiment properties
@@ -91,6 +90,7 @@ class NetworkExperiment:
         self.continue_old = self._get_continue_old(experiment_params)
         self.name = self._get_name(experiment_params)
         self.val_interval = log_params['val_log_frequency']
+        self.verbose = experiment_params['verbose']
 
         # Create TensorFlow objects
         self.dataset, self.epoch_size = self._get_dataset(dataset_params)
@@ -98,8 +98,6 @@ class NetworkExperiment:
         self.trainer = self._get_trainer(trainer_params)
         self.evaluator = self._get_evaluator(log_params['evaluator'])
         self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
-
-        self.train(experiment_params['num_steps'])
 
     def _get_continue_old(self, experiment_params):
         """Extract whether an old experiment should be continued.
@@ -144,6 +142,7 @@ class NetworkExperiment:
             true_out=self.dataset.target,
             is_training=self.dataset.is_training,
             name=self.name,
+            verbose=self.verbose,
             **model_params['network_params']
         )
 
@@ -152,6 +151,7 @@ class NetworkExperiment:
             self.model,
             epoch_size=self.epoch_size,
             log_dir=self.log_dir,
+            verbose=self.verbose,
             **trainer_params
         )
 
@@ -195,10 +195,11 @@ class NetworkExperiment:
     def train(self, num_steps):
         """Train the specified model for the given number of steps.
         """
+        iterator = trange if self.verbose else range
         num_vals = num_steps//self.val_interval
         with tf.Session() as sess:
             self._init_session(sess)
-            for i in range(num_vals):
+            for i in iterator(num_vals):
                 self._train_its(sess)
 
 
@@ -396,11 +397,13 @@ class SacredExperiment(NetworkExperiment):
         """
         self._run = _run
         
+
         # Set experiment properties
         self.log_dir = self._get_logdir(experiment_params)
         self.continue_old = self._get_continue_old(experiment_params)
         self.name = self._get_name(experiment_params)
         self.val_interval = log_params['val_log_frequency']
+        self.verbose = experiment_params['verbose']
 
         # Create TensorFlow objects
         self.dataset, self.epoch_size = self._get_dataset(dataset_params)
@@ -410,7 +413,6 @@ class SacredExperiment(NetworkExperiment):
         self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
         self.sacred_logger = self._get_sacred_logger(log_params['sacred_params'])
 
-        self.train(experiment_params['num_steps'])
 
     def _train_steps(self, sess):
         """Perform `self.val_interval` train steps.
