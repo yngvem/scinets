@@ -1,8 +1,7 @@
 import tensorflow as tf
 import sacred
+from pprint import pprint
 from scinets.utils.experiment import SacredExperiment, NetworkExperiment
-
-
 
 
 if __name__ == '__main__':
@@ -14,20 +13,20 @@ if __name__ == '__main__':
             url='yngvem.no',
             username='sacredWriter',
             password='LetUsUseSacredForLogging',
-            )
+        )
     )
 
     @ex.config
     def cfg():
         experiment_params = {
             'log_dir': './logs/',
-            'name': 'test_experiment',
+            'name': 'espen_test',
             'continue_old': False,
-            'num_steps': 10000
+            'verbose': True
         }
         dataset_params = {
-            'data_path': '/home/yngve/dataset_extraction/val_split_2d.h5',
-            'batch_size': [256, 256, 1],
+            'data_path': '/home/yngve/Dropbox/dataset_extraction/val_split_2d.h5',
+            'batch_size': [32, 256, 1],
             'val_group': 'val'
         }
         model_params = {
@@ -36,19 +35,19 @@ if __name__ == '__main__':
                 'loss_function': 'sigmoid_cross_entropy_with_logits',
                 'loss_kwargs': {},
                 'skip_connections': [
-                    ('conv1', 'linear_upsample_2'),
-                    ('conv2', 'linear_upsample_1')
+                    ('input', 'linear_upsample_2'),
+                    ('conv1', 'linear_upsample_1')
                 ],
                 'architecture': [
                         {
                             'layer': 'Conv2D',
                             'scope': 'conv1',
                             'layer_params': {
-                                'out_size': 8,
-                                'k_size': 5,
+                                'out_size': 64,
+                                'k_size': 7,
                                 'strides': 2
                             },
-                            'normalization': {
+                            'normalizer': {
                                 'operator': 'batch_normalization'
                             },
                             'activation': {
@@ -59,14 +58,14 @@ if __name__ == '__main__':
                             }
                         },
                         {
-                            'layer': 'Conv2D',
+                            'layer': 'ResnetConv2D',
                             'scope': 'conv2',
                             'layer_params': {
                                 'out_size': 16,
                                 'k_size': 5,
                                 'strides': 2
                             },
-                            'normalization': {
+                            'normalizer': {
                                 'operator': 'batch_normalization'
                             },
                             'activation': {
@@ -77,14 +76,13 @@ if __name__ == '__main__':
                             }
                         },
                         {
-                            'layer': 'Conv2D',
+                            'layer': 'ResnetConv2D',
                             'scope': 'conv3',
                             'layer_params': {
                                 'out_size': 16,
-                                'k_size': 5,
-                                'strides': 2
+                                'k_size': 5
                             },
-                            'normalization': {
+                            'normalizer': {
                                 'operator': 'batch_normalization'
                             },
                             'activation': {
@@ -95,13 +93,13 @@ if __name__ == '__main__':
                             }
                         },
                         {
-                            'layer': 'Conv2D',
+                            'layer': 'ResnetConv2D',
                             'scope': 'conv4',
                             'layer_params': {
                                 'out_size': 32,
                                 'k_size': 5,
                             },
-                            'normalization': {
+                            'normalizer': {
                                 'operator': 'batch_normalization'
                             },
                             'activation': {
@@ -117,13 +115,13 @@ if __name__ == '__main__':
                             'layer_params': {'rate': 2}
                         },
                         {
-                            'layer': 'Conv2D',
+                            'layer': 'ResnetConv2D',
                             'scope': 'conv5',
                             'layer_params': {
                                 'out_size': 32,
                                 'k_size': 5,
                             },
-                            'normalization': {
+                            'normalizer': {
                                 'operator': 'batch_normalization'
                             },
                             'activation': {
@@ -139,13 +137,13 @@ if __name__ == '__main__':
                             'layer_params': {'rate': 2}
                         },
                         {
-                            'layer': 'Conv2D',
+                            'layer': 'ResnetConv2D',
                             'scope': 'conv6',
                             'layer_params': {
                                 'out_size': 64,
                                 'k_size': 5,
                             },
-                            'normalization': {
+                            'normalizer': {
                                 'operator': 'batch_normalization'
                             },
                             'activation': {
@@ -155,20 +153,51 @@ if __name__ == '__main__':
                                 'operator': 'he_normal'
                             }
                         },
+                        {
+                            'layer': 'ResnetConv2D',
+                            'scope': 'conv7',
+                            'layer_params': {
+                                'out_size': 1,
+                                'k_size': 5,
+                            },
+                            'normalizer': {
+                                'operator': 'batch_normalization'
+                            },
+                            'activation': {
+                                'operator': 'linear'
+                            },
+                            'initializer': {
+                                'operator': 'he_normal'
+                            }
+                        }
                 ],
-                'verbose': True,
             }
         }
 
         trainer_params = {
-            'train_op': 'GradientDescentOptimizer',
-            'train_op_kwargs': {'learning_rate': 0.00003}
+            'train_op': {
+                'operator': 'AdamOptimizer',
+                'arguments': {
+                    'learning_rate': 0.0001
+                }
+            },
+            # 'learning_rate_op': {
+            #     'operator': 'cosine_decay_restarts',
+            #     'arguments': {
+            #         'learning_rate': 0.0000001,
+            #         'first_decay_steps': 100,
+            #         't_mul': 2,
+            #         'm_mul': 1,
+            #         'alpha': 0.01
+            #     }
+            # }
         }
 
         log_params={
-            'val_log_frequency': 10,
+            'val_log_frequency': 100,
             'evaluator': 'BinaryClassificationEvaluator',
             'tb_params': {
+                'log_all_params': False,
                 'log_dicts': [
                     {
                         'log_name': 'Loss',
@@ -215,7 +244,28 @@ if __name__ == '__main__':
                         'log_name': 'Probability_map',
                         'log_var':'probabilities',
                         'log_type': 'histogram',
+                    },
+                    {
+                        'log_name': 'Precision',
+                        'log_var': 'precision',
+                        'log_type': 'scalar'
+                    },
+                    {
+                        'log_name': 'Recall',
+                        'log_var': 'recall',
+                        'log_type': 'scalar'
+                    },
+                    {
+                        'log_name': 'True positives',
+                        'log_var': 'true_positives',
+                        'log_type': 'scalar'
+                    },
+                    {
+                        'log_name': 'True negatives',
+                        'log_var': 'true_negatives',
+                        'log_type': 'scalar'
                     }
+
                 ]
             },
             'sacred_params': {
@@ -240,14 +290,6 @@ if __name__ == '__main__':
                         'log_name': 'Recall',
                         'log_var': 'recall',
                     },
-                    {
-                        'log_name': 'True positives',
-                        'log_var': 'true_positives',
-                    },
-                    {
-                        'log_name': 'True negatives',
-                        'log_var': 'true_negatives',
-                    }
                 ]
             }
         }
@@ -263,3 +305,4 @@ if __name__ == '__main__':
             trainer_params=trainer_params,
             log_params=log_params,
         )
+        experiment.train(50000)
