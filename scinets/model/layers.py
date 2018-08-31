@@ -15,6 +15,13 @@ keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
 
 
 class BaseLayer:
+    """Base class for all layers.
+
+    To create new layers, one only needs to overload the `_build_layer`
+    function, which should return the output tensor of the layer. Additionally,
+    for verbose network building to be supported, the `_print_info` function
+    must be overloaded.
+    """
     def __init__(self, x, initializer=None, regularizer=None, activation=None,
                  normalizer=None, is_training=None, scope=None,
                  layer_params=None, verbose=False, *args, **kwargs):
@@ -35,9 +42,8 @@ class BaseLayer:
         
         # Build layer
         with tf.variable_scope(scope) as self.vscope:
-            self.output, self.params, self.reg_list = self._build_layer(
-                **layer_params
-            )
+            self.output = self._build_layer(**layer_params)
+            self.params, self.reg_list = self._get_returns(self.vscope)
 
             if verbose:
                 self._print_info(layer_params)
@@ -240,8 +246,9 @@ class BaseLayer:
         """
         trainable = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 
                                       scope=scope.name)
+        # TODO: FIX THIS SHIT!
         params = {
-            '/'.join(var.name.split('/')[-2:][:-2]): var for var in trainable
+            var.name.split(scope.name)[-1][1:]: var for var in trainable
         }
         reg_list = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES, 
                                      scope=scope.name)
@@ -307,8 +314,7 @@ class FCLayer(BaseLayer):
         out = self.normalizer(out, training=self.is_training, name='BN')
 
         # Get variables
-        params, reg_list = self._get_returns(self.vscope)
-        return out, params, reg_list
+        return out
 
     def _print_info(self, layer_params):
         print(
@@ -327,6 +333,8 @@ class FCLayer(BaseLayer):
 
 
 class Conv2D(BaseLayer):
+    """A standard convolutional layer.
+    """
     def _build_layer(self, out_size, k_size=3, use_bias=True, dilation_rate=1,
                      strides=1, padding='SAME'):
         """
@@ -343,10 +351,12 @@ class Conv2D(BaseLayer):
         regularizer : str
             What regularizer to use on the weights. Acceptable values are the name 
             of callables in the `regularizers.py` file, or None.
-        dilation_rate : int
-            The dilation rate of this layer (for atrous convolutions). Setting a 
-            dilation rate and stride different from 1 at the same time yields 
-            an error.
+        dilation_rate : int or array_like(length=2)
+            The dilation rate of this layer (for atrous convolutions). Asymmetric
+            dilations are accepted as a length two array, where the first number
+            is the vertical dilation rate and the second number is the horizontal
+            strides. Setting a dilation rate and stride different from 1 at 
+            the same time is not supported.
         strides : int or array_like(length=2)
             The strides used for this layer. Asymmetric strides are accepted as a 
             length two array, where the first number is the vertical strides and
@@ -361,13 +371,6 @@ class Conv2D(BaseLayer):
         --------
         out : tensorflow.Variable
             Output tensor of this layer
-        params : dict
-            Dictionary with one or two keys;
-            - 'W': The weight tensor
-            - 'b': The bias tensor (does not exist if `bias` is False).
-        reg_list : list
-            List containing all the regularization operators for this layer. 
-            Should be added to loss during training.
         """
         out = tf.layers.conv2d(
             self.input,
@@ -383,10 +386,7 @@ class Conv2D(BaseLayer):
         out = self.activation(out)
         out = self.normalizer(out, training=self.is_training, name='BN')
 
-        # Get variables
-        params, reg_list = self._get_returns(self.vscope)
-
-        return out, params, reg_list
+        return out
 
     def _print_info(self, layer_params):
         print(
@@ -408,6 +408,83 @@ class Conv2D(BaseLayer):
         )
 
 
+class GlobalConvolutionalLayer(BaseLayer):
+    """A Global Convolutional layer as described in [1].
+
+    [1]: Large Kernel Matters - Improve Semantic Segmentation by Global
+         Convolutional Network.
+    """
+    def _gcn_convolution(in_tensor, out_size, k_size=21, use_bias=True,
+                         dilation_rate=1, strides=1, padding='SAME'):
+        if isinstance(strides, int):
+            strides = [strides, strides]
+        if isinstance(dilation_rate, int):
+            dilation_rate = [dilation_rate, dilation_rate]
+
+        out1 = tf.layers.conv2d(
+            in_tensor,
+            out_size,
+            kernel_size=[1, k_size],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[1, strides[1]],
+            dilation_rate=[1, dilation_rate[1]],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+        out1 = tf.layers.conv2d(
+            in_tensor,
+            out_size,
+            kernel_size=[k_size, 1],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[strides[0], 1],
+            dilation_rate=[dilation_rate[0], 1],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+
+        out2 = tf.layers.conv2d(
+            in_tensor,
+            out_size,
+            kernel_size=[k_size, 1],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[strides[0], 1],
+            dilation_rate=[dilation_rate[0], 1],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+        out2 = tf.layers.conv2d(
+            in_tensor,
+            out_size,
+            kernel_size=[1, k_size],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[1, strides[1]],
+            dilation_rate=[1, dilation_rate[1]],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+
+        return out1, out2
+
+    def _build_layer(self, out_size, k_size=7, use_bias=True, dilation_rate=1,
+                     strides=1, padding='SAME'):
+        out1, out2 = self._gcn_convolution(
+            self.input,
+            out_size=out_size,
+            k_size=k_size,
+            use_bias=use_bias,
+            dilation_rate=dilation_rate,
+            strides=strides,
+            padding=padding
+        )
+        out = out1 + out2
+        out = self.activation(out)
+        out = self.normalizer(out, training=self.is_training, name='BN')
+
+ 
 class ResnetConv2D(BaseLayer):
     def _build_layer(self, out_size, k_size=3, use_bias=True, dilation_rate=1,
                     strides=1, verbose=False):
@@ -426,30 +503,13 @@ class ResnetConv2D(BaseLayer):
             The shape of the vector out of this layer
         use_bias : bool
             Wether or not this layer should have a bias term
-        initialiser : str
-            The initialiser to use for the weights. Accepted initialisers are
-            - 'he': Normally distributed with 
-                    :math:`\\sigma^2 = \\frac{2}{n_{in}}`
-            - 'glorot': Normally distributed with 
-                        :math:`\\sigma^2 = \\frac{2}{n_{in} + n_{out}}`
-            - 'normal': Normally distributed with a standard deviation of `std`
-        std : float
-            Standard deviation used for weight initialisation if `initialiser` is 
-            set to 'normal'.
-        regularizer : str
-            What regularizer to use on the weights. Acceptable values are the name 
-            of callables in the `regularizers.py` file, or None.
-        dilation_rate : int
-            The dilation rate of this layer (for atrous convolutions). Setting a 
-            dilation rate and stride different from 1 at the same time yields an
-            error.
-        strides : int or array_like(length=2)
+        dilation_rate : int or array_like (length=2)
+            The dilation rate used, Assymetric dilation rates are accepted as
+            a length two array
+        strides : int or array_like (length=2)
             The strides used for this layer. Asymmetric strides are accepted as a
             length two array, where the first number is the vertical strides and 
             the second number is the horizontal strides.
-        activation : str
-            What activation function to use at the end of the layer. Acceptable 
-            values are the name of callables in the `activations.py` file, or None.
         scope : str
             The scope of this layer (two layers can't share scope).
         verbose : bool
@@ -458,13 +518,6 @@ class ResnetConv2D(BaseLayer):
         --------
         out : tensorflow.Variable
             Output tensor of this layer
-        params : dict
-            Dictionary with one or two keys;
-            - 'W': The weight tensor
-            - 'b': The bias tensor (does not exist if `bias` is False).
-        reg_list : list
-            List containing all the regularization operators for this layer.
-            Should be added to loss during training.
 
 
         Raises:
@@ -472,20 +525,15 @@ class ResnetConv2D(BaseLayer):
         ValueError
             If the initialiser is not valid.
         """
-        # Create residual path
         res_path = self._generate_residual_path(out_size, k_size, use_bias,
                                                 dilation_rate, strides)
 
-        # Create skip connection
         skip = self._generate_skip_connection(out_size, strides)
 
         # Compute ResNet output
         out = skip + res_path
 
-        # Get variables
-        params, reg_list = self._get_returns(self.vscope)
-
-        return out, params, reg_list
+        return out
 
     def _generate_residual_path(self, out_size, k_size=3, use_bias=True,
                                 dilation_rate=1, strides=1):
@@ -495,7 +543,7 @@ class ResnetConv2D(BaseLayer):
         res_path = self.activation(res_path)
         res_path = tf.layers.conv2d(
             res_path,
-            out_size,
+            self.input.get_shape().as_list()[-1],
             kernel_size=k_size,
             use_bias=use_bias,
             kernel_initializer=self.initializer,
@@ -524,17 +572,32 @@ class ResnetConv2D(BaseLayer):
         return res_path
 
     def _generate_skip_connection(self, out_size, strides):
-        return tf.layers.conv2d(
-            self.input,
-            out_size,
-            kernel_size=1,
-            use_bias=False,
-            kernel_initializer=self.initializer,
-            strides=strides,
-            dilation_rate=1,
-            kernel_regularizer=self.regularizer,
-            name='conv2d_skip'
-        )
+        shape = self.input.get_shape()
+        if out_size != shape[-1]:
+            return tf.layers.conv2d(
+                self.input,
+                out_size,
+                kernel_size=1,
+                use_bias=True,
+                kernel_initializer=self.initializer,
+                strides=strides,
+                dilation_rate=1,
+                kernel_regularizer=self.regularizer,
+                name='conv2d_skip'
+            )
+        elif strides != 1:
+            if isinstance(strides, int):
+                new_shape = [shape[1]/strides, shape[2]/strides]
+            else: 
+                new_shape = [shape[1]/strides[0], shape[2]/strides[1]]
+
+            return tf.image.resize_images(
+                self.input,
+                new_shape,
+                method=tf.image.ResizeMethod.NEAREST_NEIGHBOR,
+                align_corners=True
+            )
+        return self.input
         
     def _print_info(self, layer_params):
         print(
@@ -556,12 +619,131 @@ class ResnetConv2D(BaseLayer):
         )
 
 
+class ResnetLKM2D(ResnetConv2D):
+    """The Resnet node described in [1]
+
+    [1]: Large Kernel Matters - Improve Semantic Segmentation by Global
+         Convolutional Network.
+    """
+    def _generate_residual_path(self, out_size, k_size=7, use_bias=True,
+                                dilation_rate=1, strides=1):
+        if isinstance(strides, int):
+            strides = [strides, strides]
+        if isinstance(dilation_rate, int):
+            dilation_rate = [dilation_rate, dilation_rate]
+
+        out1 = tf.layers.conv2d(
+            self.input,
+            out_size,
+            kernel_size=[1, k_size],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[1, strides[1]],
+            dilation_rate=[1, dilation_rate[1]],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+        out1 = self.normalizer(out1, training=self.is_training,
+                               name='Normalizer1_1')
+        out1 = activation(out1)
+        out1 = tf.layers.conv2d(
+            out1,
+            out_size,
+            kernel_size=[k_size, 1],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[strides[0], 1],
+            dilation_rate=[dilation_rate[0], 1],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+        out1 = self.normalizer(out1, training=self.is_training,
+                               name='Normalizer1_2')
+        out1 = activation(out1)
+
+
+        out2 = tf.layers.conv2d(
+            self.input,
+            out_size,
+            kernel_size=[k_size, 1],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[strides[0], 1],
+            dilation_rate=[dilation_rate[0], 1],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+        out1 = self.normalizer(out1, training=self.is_training,
+                               name='Normalizer2_1')
+        out1 = activation(out1)
+        out2 = tf.layers.conv2d(
+            out2,
+            out_size,
+            kernel_size=[1, k_size],
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=[1, strides[1]],
+            dilation_rate=[1, dilation_rate[1]],
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+        out1 = self.normalizer(out1, training=self.is_training,
+                               name='Normalizer2_2')
+        out1 = activation(out1)
+
+        out = tf.concat((out1, out2), axis=-1)
+
+        return tf.layers.conv2d(
+            out,
+            out_size,
+            kernel_size=1,
+            use_bias=True,
+            kernel_initializer=self.initializer,
+            kernel_regularizer=self.regularizer,
+            name='conv2d_merge'
+        )
+
+
+class BoundaryRefinementLayer(ResnetConv2D):
+    """A boundary refinement layer as described in [1].
+
+    [1]: Large Kernel Matters - Improve Semantic Segmentation by Global
+         Convolution Network.
+    """
+    def _generate_residual_path(self, out_size, k_size=3, use_bias=True,
+                                dilation_rate=1, strides=1):
+        res_path = tf.layers.conv2d(
+            self.input,
+            out_size,
+            kernel_size=k_size,
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=strides,
+            dilation_rate=dilation_rate,
+            padding='SAME',
+            kernel_regularizer=self.regularizer,
+            name='conv2d_1'
+        )
+        res_path = self.activation(res_path)
+        return tf.layers.conv2d(
+            res_path,
+            out_size,
+            kernel_size=k_size,
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            padding='SAME',
+            kernel_regularizer=self.regularizer,
+            name='conv2d_2'
+        )
+
+
 class LearnedAveragePool(Conv2D):
+    """
+    A learned average pool layer is a conv-layer where the kernel and stride
+    size is equal to the pool size..
+    """
     def _build_layer(self, pool_size):
         """
-        An average pooling layer, essentialy a conv-layer with convolution filter size as stride
-        length.
-
         Parameters
         ----------
         x : tensorflow.Variable
@@ -605,9 +787,11 @@ class LearnedAveragePool(Conv2D):
 
 
 class MaxPool(BaseLayer):
+    """
+    A max pooling layer.
+    """
     def _build_layer(self, pool_size):
         """
-        A max pooling layer.
 
         Parameters
         ----------
@@ -644,6 +828,9 @@ class MaxPool(BaseLayer):
 
 
 class LinearInterpolate(BaseLayer):
+    """
+    A linear interpolation layer, used for better upsampling than upconvolutions.
+    """
     def _build_layer(self, rate=None, out_size=None):
         if rate is not None and out_size is None:
             shape = self.input.get_shape().as_list()[1:-1]
@@ -656,7 +843,7 @@ class LinearInterpolate(BaseLayer):
         out = tf.image.resize_images(self.input, out_size,
                                      method=tf.image.ResizeMethod.BILINEAR,
                                      align_corners=True)
-        return out, {}, []
+        return out
     
     def _print_info(self, layer_params):
         print(
@@ -668,6 +855,9 @@ class LinearInterpolate(BaseLayer):
 
         
 class BicubicInterpolate(BaseLayer):
+    """
+    A bicubic interpolation layer, used for better upsampling than upconvolutions.
+    """
     def _build_layer(self, rate=None, out_size=None):
         if rate is not None and out_size is None:
             shape = self.input.get_shape().as_list()[1:-1]
@@ -681,7 +871,7 @@ class BicubicInterpolate(BaseLayer):
                                      method=tf.image.ResizeMethod.BICUBIC,
                                      align_corners=True)
 
-        return out, {}, []
+        return out
     
     def _print_info(self, layer_params):
         print(
@@ -693,6 +883,9 @@ class BicubicInterpolate(BaseLayer):
 
 
 class NearestNeighborInterpolate(BaseLayer):
+    """
+    A neighbor interpolation layer, used for better upsampling than upconvolutions.
+    """
     def _build_layer(self, rate=None, out_size=None):
         if rate is not None and out_size is None:
             shape = self.input.get_shape().as_list()[1:-1]
@@ -709,7 +902,7 @@ class NearestNeighborInterpolate(BaseLayer):
             align_corners=True
         )
 
-        return out, {}, []
+        return out
     
     def _print_info(self, layer_params):
         print(
@@ -721,6 +914,9 @@ class NearestNeighborInterpolate(BaseLayer):
 
         
 class GlobalAveragePool(BaseLayer):
+    """
+    Global average pool, used for image classification
+    """
     def _build_layer(self):
         out = tf.reduce_mean(
             self.input,
@@ -728,7 +924,7 @@ class GlobalAveragePool(BaseLayer):
             keepdims=True
         )
 
-        return out, {}, []
+        return out
     
     def _print_info(self, layer_params):
         print(
@@ -737,3 +933,4 @@ class GlobalAveragePool(BaseLayer):
             'Input tensor: {}\n'.format(self.input.get_shape().as_list()),
             'Output shape: {}'.format(self.output.get_shape().as_list())
         )
+
