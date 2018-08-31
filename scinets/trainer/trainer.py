@@ -12,7 +12,7 @@ class NetworkTrainer:
     """
     def __init__(self, network, epoch_size, log_dir='./logs', 
                  train_op=None, learning_rate_op=None, 
-                 max_checkpoints=10, save_step=100, verbose=True):
+                 max_checkpoints=10, save_step=2000, verbose=True):
         """Trainer class for neural networks.
 
         Parameters
@@ -20,13 +20,25 @@ class NetworkTrainer:
         network : segmentation_nets.model.NeuralNet
             Network to train.
         epoch_size : int
-        train_op : str
-            The name of the training operator to use, must be defined in
-            `segmentation_nets.trainer.optimizers`.
-        train_op_kwargs : dict (optional)
-            Keyword arguments for the training operator, e.g. the learning_rate
-            parameter will be set to 0.0001 ff this is set to
-                {'learning_rate': 0.0001}
+        train_op : dict
+            Dictionary that parametrise the training operator. The key
+            'operator' should map to the name of the training operator
+            (which must be defined in `scinets.trainer.optimizers`)
+            and the 'arguments' key should map to a kwargs dict that is
+            supplied to the training operator.
+        learning_rate_op : dict
+            Dictionary specifying how the learning rate should be computed.
+            If 'learning_rate' is a key in the `train_op['arguments']` dict
+            then this should be None.
+
+            The 'operator' key should be the name of a learning rate modifier,
+            e.g. a function in the `scinets.trainer.lr_modifiers` module.
+            Additionally, the key 'arguments' can map to a kwargs dict that
+            is supplied to the learning rate modifier.
+
+            Finally, we note that the `self.global_step` is supplied as the
+            keyword argument `global_step=self.global_step` to the learning rate
+            modifier.
         max_checkpoints : int
             Maximum number of checkpoints to store.
         save_step : int
@@ -114,15 +126,11 @@ class NetworkTrainer:
     def save_state(self, session):
         """Save a checkpoint of the model.
         """
-        if self.verbose:
-            print('Saving model')
         if not self.log_dir.is_dir():
             self.log_dir.mkdir(parents=True)
         file_name = str(self.log_dir/'checkpoint')
         self._checkpoint_saver.save(session, file_name,
                          global_step=self.num_steps)
-        if self.verbose:
-            print('Model saved')
 
     def load_state(self, session, step_num=None):
         """Load specified checkpoint, latest is used if `step_num` isn't given.
