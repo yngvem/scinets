@@ -69,7 +69,7 @@ class HDFData:
                 output_types=(tf.int16, tf.float32, tf.float32),
                 output_shapes=([], self.shapes[dataset], self.shapes[target])
             )
-            self._tf_dataset = self._tf_dataset.repeat().batch(5)
+            self._tf_dataset = self._tf_dataset.repeat().batch(batch_size)
             self._tf_iterator = self._tf_dataset.make_one_shot_iterator()
             self._next_el_op = self._tf_iterator.get_next()
 
