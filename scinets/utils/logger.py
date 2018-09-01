@@ -9,6 +9,7 @@ import tensorflow as tf
 import numpy as np 
 from pathlib import Path
 from copy import deepcopy
+from collections import ChainMap
 
 
 class BaseLogger:
@@ -462,9 +463,40 @@ class SacredLogger(BaseLogger):
         )
 
         both_summary_ops = self._init_logs(self.log_dicts)
-        self.train_summary_op = self._init_logs(self.train_log_dicts) + both_summary_ops
-        self.val_summary_op = self._init_logs(self.val_log_dicts) + both_summary_ops
+        self.train_summary_op = self._join_summaries(
+            self._init_logs(self.train_log_dicts),
+            both_summary_ops
+        )
+        self.val_summary_op = self._join_summaries(
+            self._init_logs(self.val_log_dicts),
+            both_summary_ops
+        )
 
+    def _join_summaries(self, *args):
+        """Join the summaries to one summary list with one dict.
+
+        The input is a series of lists containing one dictionary,
+        and the output is a single list with one element which is a joined
+        version of all input dictionaries.
+        """
+        return [dict(ChainMap(*map(lambda x: x[0], args)))]
+
+    def _init_logs(self, log_dict):
+        """Initiate the logging operators specified in `log_dictsj`.
+
+        Parameters:
+        -----------
+        log_dicts : list
+            List of dictionaries specifying the kind of logs to create.
+            See `__init__` docstring for examples.
+
+        Returns:
+        --------
+        list : List with one logging operators.
+        """
+        logs = tuple(super()._init_logs(log_dict))
+        return [dict(ChainMap(*logs))]
+        
     def _init_log(self, log_var, log_name, *args, **kwargs):
         """Create a specific log operator.
         
@@ -494,8 +526,13 @@ class SacredLogger(BaseLogger):
         """
         if _run is None:
             raise ValueError('Run instance must be provided.')
-        super().log_multiple(summaries=summaries, it_nums=it_nums,
-                             _run=_run, log_type=log_type)
+
+        summary = {log_var: 0 for log_var in summaries[0][0]}
+        for log in summaries:
+            for log_var, log_value in log[0].items():
+                summary[log_var] += np.mean(log_value)/len(it_nums)
+        self.log([summary], it_nums[-1], log_type=log_type, _run=_run)
+            
 
     def log(self, summary, it_num, log_type='train', _run=None):
         """Log summaries for a single time step.
