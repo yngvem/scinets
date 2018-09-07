@@ -1,0 +1,7 @@
+{
+    "train_op": {
+        "operator": "AdamOptimizer",
+        "arguments": {
+        }
+    }
+}

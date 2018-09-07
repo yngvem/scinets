@@ -1,0 +1,6 @@
+{
+    "data_path": "/home/yngve/dataset_extraction/val_split_2d.h5",
+    "batch_size": [16, 256, 1],
+    "val_group": "val"
+}
+
