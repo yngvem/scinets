@@ -70,8 +70,7 @@ class NeuralNet:
         if true_out is not None and loss_function is not None:
             self.set_loss(true_out, loss_function, loss_kwargs=loss_kwargs)
 
-    def set_loss(self, true_out, loss_function, true_name='labels', 
-                 predicted_name='logits', loss_kwargs=None, **kwargs):
+    def set_loss(self, true_out, loss_function, loss_kwargs=None, **kwargs):
         """
         Set the loss function of the network.
 
@@ -82,10 +81,6 @@ class NeuralNet:
         loss_function : str
             Name of loss function, must be name of a function in the `losses.py`
             file.
-        true_name : str
-            Keyword for the true labels for the loss function
-        predicted_name : str
-            Keyword for the predicted labels for the loss function
         loss_kwargs : dict (optional)
             Keyword arguments for the loss function.
         """
@@ -96,8 +91,8 @@ class NeuralNet:
         with tf.variable_scope(self.name+'/loss'):
             uregularised_loss = tf.reduce_mean(
                     loss_function(
-                        **{predicted_name: self.out,
-                           true_name: self.true_out},
+                        prediction=self.out,
+                        target=self.true_out,
                         **loss_kwargs
                     ),
                     name='loss_function'
