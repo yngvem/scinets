@@ -348,9 +348,6 @@ class Conv2D(BaseLayer):
             The shape of the vector out of this layer
         use_bias : bool
             Wether or not this layer should have a bias term
-        regularizer : str
-            What regularizer to use on the weights. Acceptable values are the name 
-            of callables in the `regularizers.py` file, or None.
         dilation_rate : int or array_like(length=2)
             The dilation rate of this layer (for atrous convolutions). Asymmetric
             dilations are accepted as a length two array, where the first number
@@ -396,6 +393,72 @@ class Conv2D(BaseLayer):
             'Output filters: {}\n'.format(layer_params['out_size']),
             'Strides: {}\n'.format(layer_params.get('strides', 1)),
             'Dilation rate: {}\n'.format(layer_params.get('dilation_rate', 1)),
+            'Padding: {}\n'.format(layer_params.get('padding', 'SAME')),
+            'Kernel initialisation: {}\n'.format(self._init_str),
+            'Activation function: {}\n'.format(self._act_str),
+            'Kernel regularisation: {}\n'.format(self._reg_str),
+            'Number of regularizer loss: {}'.format(len(self.reg_list)),
+            'Use bias: {}\n'.format(layer_params.get('use_bias', True)),
+            'Normalization: {}\n'.format(self._normalizer_str),
+            'Input shape: {}\n'.format(self.input.get_shape().as_list()),
+            'Output shape: {}'.format(self.output.get_shape().as_list())
+        )
+
+
+class Upconv2D(BaseLayer):
+    """A standard upconv layer (sometimes called deconv or transposed conv).
+    """
+    def _build_layer(self, out_size, k_size=3, use_bias=True, strides=1,
+                     padding='SAME'):
+        """
+        Creates a convolution layer with `out_size` different filters.
+
+        Parameters
+        ----------
+        x : tensorflow.Variable
+            The input tensor to this layer
+        out_size : int
+            The shape of the vector out of this layer
+        use_bias : bool
+            Wether or not this layer should have a bias term
+        strides : int or array_like(length=2)
+            The strides used for this layer. Asymmetric strides are accepted as a 
+            length two array, where the first number is the vertical strides and
+            the second number is the horizontal strides.
+        padding : str
+            How to deal with boundary conditions in the convolutions. Accepted 
+            values are 'SAME' and 'VALID'. 'SAME' uses the value of the nearest 
+            pixel and 'VALID' crops the image so that boundary conditions aren't
+            a problem.
+
+        Returns:
+        --------
+        out : tensorflow.Variable
+            Output tensor of this layer
+        """
+        out = tf.layers.conv2d_transpose(
+            self.input,
+            out_size,
+            kernel_size=k_size,
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=strides,
+            dilation_rate=dilation_rate,
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+        out = self.activation(out)
+        out = self.normalizer(out, training=self.is_training, name='BN')
+
+        return out
+
+    def _print_info(self, layer_params):
+        print(
+            '________________Convolutional layer________________\n',
+            'Variable_scope: {}\n'.format(self.vscope.name),
+            'Kernel size: {}\n'.format(layer_params.get('k_size', 3)),
+            'Output filters: {}\n'.format(layer_params['out_size']),
+            'Strides: {}\n'.format(layer_params.get('strides', 1)),
             'Padding: {}\n'.format(layer_params.get('padding', 'SAME')),
             'Kernel initialisation: {}\n'.format(self._init_str),
             'Activation function: {}\n'.format(self._act_str),
