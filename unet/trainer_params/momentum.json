@@ -2,17 +2,8 @@
     "train_op": {
         "operator": "MomentumOptimizer",
         "arguments": {
-            "momentum": 0.9
-        }
-    },
-    "learning_rate_op": {
-        "operator": "cosine_decay_restarts",
-        "arguments": {
-            "learning_rate": 0.001,
-            "first_decay_steps": 100,
-            "t_mul": 2,
-            "m_mul": 1,
-            "alpha": 0.01
+            "momentum": 0.9,
+            "learning_rate": 0.0001
         }
     }
 }
