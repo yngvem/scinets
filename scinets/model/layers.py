@@ -443,7 +443,6 @@ class Upconv2D(BaseLayer):
             use_bias=use_bias,
             kernel_initializer=self.initializer,
             strides=strides,
-            dilation_rate=dilation_rate,
             padding=padding,
             kernel_regularizer=self.regularizer
         )
