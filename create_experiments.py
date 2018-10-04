@@ -3,12 +3,14 @@ __email__ = 'yngve.m.moe@gmail.com'
 
 
 from pathlib import Path
+import json
+import argparse
 import shutil
 import os
 import itertools
 
 
-json_names = ['dataset_params', 'experiment_params', 'log_params', 
+json_names = ['dataset_params', 'log_params', 
               'model_params', 'trainer_params']
 
 
@@ -54,6 +56,8 @@ def dict_of_lists_to_list_of_dicts(d):
 
 
 def get_name_from_experiment(name, d):
+    """Create an experiment name from the json names
+    """
     name += '_'
     for v in d.values():
         fname = v.name
@@ -78,29 +82,58 @@ def get_folders_content(path):
 
 
 def get_all_experiments(name, path):
+    """Create a dictionary with experiment name as key and experiment dict as value
+    """
     folder_contents = get_folders_content(path) # dict of lists of content
     experiment = dict_of_lists_to_list_of_dicts(folder_contents)
 
     return {(get_name_from_experiment(name, ex)): ex for ex in experiment}
 
 
-def make_experiment(path, experiment_name, experiment_info):
+def get_experiment_params(experiment_name, verbose, log_dir):
+    return {
+        'log_dir': log_dir,
+        'name': experiment_name,
+        'continue_old': False,
+        'verbose': verbose
+    }
+
+def make_experiment(path, experiment_name, experiment_info, verbosity, log_dir):
+    """Create all experiment directories.
+    """
     experiment_dir = path / 'experiments' / experiment_name
     experiment_dir.mkdir(parents=True)
+
+    experiment_params = get_experiment_params(experiment_name, verbosity, log_dir)
+    with (experiment_dir/'experiment_params.json').open('w') as f:
+        json.dump(experiment_params, f)
+
     for filename, filepath in experiment_info.items():
-        filename += 'json'
+        filename += '.json'
         new_path = experiment_dir / filename
         shutil.copy(filepath, new_path)
 
 
-def create_experiment(name, path):
+
+def create_experiment(name, path, verbosity, log_dir):
     experiments = get_all_experiments(name, path)  # dict of dicts
     for experiment_name, experiment_info in experiments.items():
-        make_experiment(path, experiment_name, experiment_info)
+        make_experiment(path, experiment_name, experiment_info, verbosity, log_dir)
     
 
 if __name__ == '__main__':
-    import sys
-    path = Path(sys.argv[1])
-    name = sys.argv[2]
-    create_experiment(name, path)
+    parser = argparse.ArgumentParser(
+        description='Create experiment directories for all possible permutations'
+    )
+    parser.add_argument('path', type=str)
+    parser.add_argument('experiment_name', type=str)
+    parser.add_argument('--verbosity', type=int, default=1,
+                        help='Experiment verbosity level, default=1')
+    parser.add_argument('--logdir', type=str, default='./logs/',
+                        help='Log directory, default=./logs/')
+
+    args = parser.parse_args()
+
+    path = Path(args.path)
+
+    create_experiment(args.experiment_name, path, args.verbosity, args.logdir)
