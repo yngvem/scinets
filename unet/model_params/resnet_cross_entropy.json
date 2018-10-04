@@ -4,10 +4,10 @@
         "loss_function": "sigmoid_cross_entropy_with_logits",
         "loss_kwargs": {},
         "skip_connections": [
-            ["resnet_conv2", "upscale1"],
-            ["resnet_conv4", "upscale2"],
-            ["resnet_conv6", "upscale3"],
-            ["resnet_conv8", "upscale4"]
+            ["resnet_conv2", "upscale4"],
+            ["resnet_conv4", "upscale3"],
+            ["resnet_conv6", "upscale2"],
+            ["resnet_conv8", "upscale1"]
         ],
         "architecture": [
                 {

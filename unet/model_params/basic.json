@@ -4,10 +4,10 @@
         "loss_function": "binary_dice",
         "loss_kwargs": {},
         "skip_connections": [
-            ["conv2", "upconv1"],
-            ["conv4", "upconv2"],
-            ["conv6", "upconv3"],
-            ["conv8", "upconv4"]
+            ["conv2", "upconv4"],
+            ["conv4", "upconv3"],
+            ["conv6", "upconv2"],
+            ["conv8", "upconv1"]
         ],
         "architecture": [
                 {
