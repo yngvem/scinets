@@ -18,15 +18,39 @@ def experiment_folders(path):
 
 
 def dict_to_lists(d):
-    def get_generator(k, v):
-        return ((k, vi) for vi in v)
+    """Generate all possible key-value pairs from a dict of lists
 
-    for k, v in d.items():
-        yield get_generator(k, v)
+    Input dict:
+    d = {'a': [1, 2, 3], 'b': [4, 5]}
+
+    Output list:
+    l = [[('a', 1), ('a', 2), ('a', 3)],
+         [('b', 4), ('b', 5)]
+    """
+    def get_generator(k, l):
+        return ((k, li) for li in l)
+
+    for k, l in d.items():
+        yield get_generator(k, l)
 
 
 def dict_of_lists_to_list_of_dicts(d):
-    return map(dict, itertools.product(*dict_to_lists(d)))
+    """Generate a list of dictionaries from a dictionary of lists
+
+    Input dict:
+    d = {'a': [1, 2, 3], 'b': [4, 5]}
+
+    Output list:
+    l = [{'a': 1, 'b': 4},
+         {'a': 2, 'b': 4},
+         {'a': 3, 'b': 4},
+         {'a': 1, 'b': 5},
+         {'a': 2, 'b': 5},
+         {'a': 3, 'b': 5}
+        ]
+    """
+    key_value_pairs = dict_to_lists(d)
+    return map(dict, itertools.product(*key_value_pairs))
 
 
 def get_name_from_experiment(name, d):
