@@ -1,7 +1,9 @@
-*/logs/*
+logs/*
 MNIST_data/*
 */__pycache__/*
 *.swp
 *.pyc
 *.swo
 *.swn
+
+database_credentials.yml
