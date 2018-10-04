@@ -879,6 +879,7 @@ class MaxPool(BaseLayer):
             padding='valid',
             name='max_pool'
         )
+        return out
             
     def _print_info(self, layer_params):
         print(
