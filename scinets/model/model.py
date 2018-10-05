@@ -195,7 +195,7 @@ class UNet(NeuralNet):
         second_tensor = tf.image.resize_images(
             second_tensor,
             size=size,
-            method=tf.image.ResizeMethod.BICUBIC,
+            method=tf.image.ResizeMethod.BILINEAR,
             align_corners=True
         )
         return tf.concat((first_tensor, second_tensor), axis=-1)
