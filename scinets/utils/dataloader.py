@@ -49,36 +49,45 @@ class HDFData:
         self.data_name = dataset
         self.target_name = target
         self.keep_in_ram = keep_in_ram
+        self.batch_size = batch_size
+        self.prefetch = prefetch
 
         # The order in which the samples was drawn
         self.trained_order = []
 
         # Get the shapes of the input and output data
-        self.shapes = {}
         with h5py.File(data_path) as h5:
             g = h5[self.group]
             self._len = g[dataset].shape[0]
+            self.data_shape = self._get_dataset_shape(g, dataset)
+            self.target_shape = self._get_dataset_shape(g, target)
 
-            if 'shape' in g[dataset].attrs:
-                self.shapes[dataset] = tuple(g[dataset].attrs['shape'])
-            else:
-                self.shapes[dataset] = tuple(g[dataset].shape[1:])
-
-            if 'shape' in g[target].attrs:
-                self.shapes[target] = tuple(g[target].attrs['shape'])
-            else:
-                self.shapes[target] = tuple(g[target].shape[1:])
+        if keep_in_ram:
+            self.dataset = self._extract_dataset_as_dict()
 
         # Get tensorflow dataset and related objects
         with tf.variable_scope(name):
-            self._tf_dataset = tf.data.Dataset.from_generator(
-                generator=self._iterate_dataset_randomly,
-                output_types=(tf.int16, tf.float32, tf.float32),
-                output_shapes=([], self.shapes[dataset], self.shapes[target])
-                ).repeat().batch(batch_size).prefetch(prefetch)
+            self._next_el_op = self._get_next_el_op()
 
-            self._tf_iterator = self._tf_dataset.make_one_shot_iterator()
-            self._next_el_op = self._tf_iterator.get_next()
+    def _get_dataset_shape(self, h5, name):
+        g = h5[self.group]
+        if 'shape' in g[name].attrs:
+            return tuple(g[name].attrs['shape'])
+        else:
+            return tuple(g[name].shape[1:])
+
+    def _get_next_el_op(self):
+        output_types = (tf.int16, tf.float32, tf.float32)
+        output_shapes = ([], self.data_shape, self.target_shape)
+
+        tf_dataset = tf.data.Dataset.from_generator(
+            generator=self.iterate_dataset_randomly,
+            output_types=output_types,
+            output_shapes=output_shapes
+            ).repeat().batch(self.batch_size).prefetch(self.prefetch)
+
+        tf_iterator = tf_dataset.make_one_shot_iterator()
+        return tf_iterator.get_next()
 
     def _get_image_and_target(self, idx, h5):
         """Extract the input and output data of given index from a HDF5 file.
@@ -87,57 +96,57 @@ class HDFData:
         -----------
         idx : int
             Index of the data point to return
-        h5 : h5py.File
-            An opened HDF5 file to extract the data from.
+        h5 : h5py.File or dict
+            An opened HDF5 file to extract the data from or a dict emulating
+            a h5py.File object.
         """
         group = h5[self.group]
 
         image = group[self.data_name][idx]
-        image = image.reshape(self.shapes[self.data_name])
+        image = image.reshape(self.data_shape)
 
         target = group[self.target_name][idx]
-        target = target.reshape(self.shapes[self.target_name])
+        target = target.reshape(self.target_shape)
 
         return image, target
 
-    def _iterate_dataset_randomly(self):
+    def iterate_dataset_randomly(self):
         """Iterates through the dataset in random order
         """
         if self.keep_in_ram:
-            yield from self._iterate_dataset_randomly_in_ram()
+            yield from self._iterate_dataset_randomly(self.data_dict)
         else:
-            yield from self._iterate_dataset_randomly_from_disk()
+            with h5py.File(self.data_path, 'r') as h5:
+                yield from self._iterate_dataset_randomly(h5)
             
-    
-    def _iterate_dataset_randomly_in_ram(self):
-        dataset = self._extract_dataset_as_dict()        
+    def _iterate_dataset_randomly(self, dataset):
         idxes = np.arange(len(self))
         np.random.shuffle(idxes)
         for idx in idxes:
-            yield (idx, *self._get_image_and_target(idx, h5))
-
-    def _iterate_dataset_randomly_from_disk(self):
-        with h5py.File(self.data_path, 'r') as h5:
-            idxes = np.arange(len(self))
-            np.random.shuffle(idxes)
-            for idx in idxes:
-                yield (idx, *self._get_image_and_target(idx, h5))
-
+            yield (idx, *self._get_image_and_target(idx, dataset))
 
     def _extract_dataset_as_dict(self):
         """Returns a dictionary of numpy arrays that contain the dataset.
+
+        The returned dictionary has one key, which is equal to the group name.
+        The value of this key is again another dictionary with two key-value 
+        paris, one for the input data and one for the targets.
+
+        Returns:
+        --------
+        dict :
+            Dictionary containing the contents of the specified HDF5 group.
         """
-        dataset = {}
+        group_dict = {}
         with h5py.File(self.data_path, 'r') as h5:
             group = h5[self.group]
 
             images = group[self.data_name][:]
-            image_shapes = (-1, *tuple(self.shapes[self.image_name]))
-            dataset[self.data_name] = image.reshape(image_shapes)
+            group_dict[self.data_name] = image.reshape(-1, *self.data_shape)
 
             targets = group[self.target_name][:]
-            target_shapes = (-1, *tuple(self.shapes[self.target_name]))
-            dataset[self.target_name] = target.reshape(target_shapes)
+            group_dict[self.target_name] = target.reshape(-1, *self.target_shape)
+        return {self.group: group_dict}
 
     def __len__(self):
         return self._len
