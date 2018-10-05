@@ -18,7 +18,7 @@ class HDFData:
     """Wrapper for HDF5 files for tensorflow. Creates a Tensorflow dataset.
     """
     def __init__(self, data_path, batch_size, group='train', dataset='images',
-                 target='masks', name='data_reader'):
+                 target='masks', prefetch=1, name='data_reader'):
         """Setup the data reader.
 
         This will not prepare the dequeue instances. The `prepare_data`
@@ -35,6 +35,9 @@ class HDFData:
         target : str
             Name of the h5 dataset which contains the labels (or whichever
             output that is wanted from the network).
+        prefetch : int
+            Number of batches to load at the same time as a training step is
+            performed. Used to reduce waiting time between training steps.
         """
         group = group if group[0] == '/' else '/'+ group
 
@@ -68,8 +71,8 @@ class HDFData:
                 generator=self._iterate_dataset_randomly_forever,
                 output_types=(tf.int16, tf.float32, tf.float32),
                 output_shapes=([], self.shapes[dataset], self.shapes[target])
-            )
-            self._tf_dataset = self._tf_dataset.repeat().batch(batch_size)
+            ).batch(batch_size).prefetch(prefetch)
+
             self._tf_iterator = self._tf_dataset.make_one_shot_iterator()
             self._next_el_op = self._tf_iterator.get_next()
 
