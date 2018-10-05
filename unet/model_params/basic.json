@@ -421,6 +421,9 @@
                     },
                     "initializer": {
                         "operator": "he_normal"
+                    },
+                    "activation": {
+                        "operator": "sigmoid"
                     }
                 }
         ]

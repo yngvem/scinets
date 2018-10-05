@@ -1,9 +1,0 @@
-{
-    "train_op": {
-        "operator": "MomentumOptimizer",
-        "arguments": {
-            "momentum": 0.9,
-            "learning_rate": 0.0001
-        }
-    }
-}
