@@ -17,7 +17,7 @@ from . import losses
 class NeuralNet:
     def __init__(self, input_var, architecture, name=None, is_training=None,
                  true_out=None, loss_function=None, loss_kwargs=None, 
-                 verbose=False):
+                 device=None, verbose=False):
         """
         Create a standard feed-forward net.
 
@@ -40,6 +40,8 @@ class NeuralNet:
             of a function in the `segmentation_nets.model.losses` file.
         loss_kwargs : dict (optional)
             Keyword arguments to supply to the loss function.
+        device : str (optional)
+            Used to force which device the network should be placed on.
         verbose : bool (optional)
             Used to specify if information about the networkshould be printed to
             the terminal window.
@@ -64,7 +66,8 @@ class NeuralNet:
         self.reg_lists = {}
 
         with tf.variable_scope(self.name) as self.vscope:
-            self.build_model()
+            with tf.device(device):
+                self.build_model()
 
         # Set loss function
         if true_out is not None and loss_function is not None:
