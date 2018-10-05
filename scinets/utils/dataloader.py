@@ -18,7 +18,8 @@ class HDFData:
     """Wrapper for HDF5 files for tensorflow. Creates a Tensorflow dataset.
     """
     def __init__(self, data_path, batch_size, group='train', dataset='images',
-                 target='masks', prefetch=1, name='data_reader'):
+                 target='masks', prefetch=1, , keep_in_ram=False,
+                 name='data_reader'):
         """Setup the data reader.
 
         This will not prepare the dequeue instances. The `prepare_data`
@@ -38,6 +39,8 @@ class HDFData:
         prefetch : int
             Number of batches to load at the same time as a training step is
             performed. Used to reduce waiting time between training steps.
+        keep_in_ram : bool
+            If true, the whole dataset will be loaded to RAM.
         """
         group = group if group[0] == '/' else '/'+ group
 
@@ -140,7 +143,8 @@ class HDFData:
 class HDFDataset:
     def __init__(self, data_path, batch_size, train_group='train', 
                  val_group='validation', test_group='test', dataset='images',
-                 target='masks', is_training=None, is_testing=None):
+                 target='masks', prefetch=1, keep_in_ram=False,
+                 is_training=None, is_testing=None):
         """Setup the data reader.
 
         The HDF5 file should have one group for the training set, one for the
@@ -166,6 +170,11 @@ class HDFDataset:
         target : str
             Name of the h5 dataset which contains the labels (or whichever
             output that is wanted from the network).
+        prefetch : int
+            Number of batches to load at the same time as a training step is
+            performed. Used to reduce waiting time between training steps.
+        keep_in_ram : bool
+            If true, the whole dataset will be loaded to RAM.
         is_training : tensorflow.Placeholder(bool, [])
             Placeholder used to specify whether the training data should be
             the output or not.
@@ -194,6 +203,8 @@ class HDFDataset:
                 group=train_group,
                 dataset=dataset,
                 target=target,
+                prefetch=prefetch,
+                keep_in_ram=keep_in_ram,
                 name='train_reader'
             )
             self.val_data_reader = HDFData(
@@ -202,6 +213,8 @@ class HDFDataset:
                 group=val_group,
                 dataset=dataset,
                 target=target,
+                prefetch=prefetch,
+                keep_in_ram=keep_in_ram,
                 name='val_reader'
             )
             self.test_data_reader = HDFData(
@@ -210,6 +223,8 @@ class HDFDataset:
                 group=test_group,
                 dataset=dataset,
                 target=target,
+                prefetch=prefetch,
+                keep_in_ram=keep_in_ram,
                 name='test_reader'
             )
             self._create_conditionals()
