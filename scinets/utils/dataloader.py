@@ -72,7 +72,7 @@ class HDFData:
         # Get tensorflow dataset and related objects
         with tf.variable_scope(name):
             self._tf_dataset = tf.data.Dataset.from_generator(
-                generator=self._iterate_dataset_randomly_forever,
+                generator=self._iterate_dataset_randomly,
                 output_types=(tf.int16, tf.float32, tf.float32),
                 output_shapes=([], self.shapes[dataset], self.shapes[target])
                 ).repeat().batch(batch_size).prefetch(prefetch)
@@ -100,7 +100,7 @@ class HDFData:
 
         return image, target
 
-    def _iterate_dataset_randomly_once(self):
+    def _iterate_dataset_randomly(self):
         """Iterates through the dataset in random order
         """
         if self.keep_in_ram:
