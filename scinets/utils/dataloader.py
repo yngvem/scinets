@@ -48,6 +48,7 @@ class HDFData:
         self.group = group
         self.data_name = dataset
         self.target_name = target
+        self.keep_in_ram = keep_in_ram
 
         # The order in which the samples was drawn
         self.trained_order = []
@@ -74,7 +75,7 @@ class HDFData:
                 generator=self._iterate_dataset_randomly_forever,
                 output_types=(tf.int16, tf.float32, tf.float32),
                 output_shapes=([], self.shapes[dataset], self.shapes[target])
-            ).batch(batch_size).prefetch(prefetch)
+                ).repeat().batch(batch_size).prefetch(prefetch)
 
             self._tf_iterator = self._tf_dataset.make_one_shot_iterator()
             self._next_el_op = self._tf_iterator.get_next()
@@ -99,24 +100,37 @@ class HDFData:
 
         return image, target
 
-    def _iterate_dataset_randomly_forever(self):
-        """Infinite generator, returns a random image from the dataset.
-
-        It is not completely random, rather, the dataset is shuffled and
-        every element is yielded before shuffling it again.
-        """
-        while True:
-            for idx, image, target in self._iterate_dataset_randomly_once():
-                yield idx, image, target
-
     def _iterate_dataset_randomly_once(self):
         """Iterates through the dataset in random order
         """
+        if self.keep_in_ram:
+            yield from self._iterate_dataset_randomly_in_ram()
+        else:
+            yield from self._iterate_dataset_randomly_from_disk()
+            
+    
+    def _iterate_dataset_randomly_in_ram(self):
+        dataset = self._extract_dataset_as_dict()        
+        idxes = np.arange(len(self))
+        np.random.shuffle(idxes)
+        for idx in idxes:
+            yield (idx, *self._get_image_and_target(idx, h5))
+
+    def _iterate_dataset_randomly_from_disk(self):
         with h5py.File(self.data_path, 'r') as h5:
             idxes = np.arange(len(self))
             np.random.shuffle(idxes)
             for idx in idxes:
                 yield (idx, *self._get_image_and_target(idx, h5))
+
+
+    def _extract_dataset_as_dict(self):
+        """Returns a dictionary of numpy arrays that contain the dataset.
+        """
+        dataset = {}
+        with h5py.File(self.data_path, 'r') as h5:
+            for i in h5:
+                dataset[i] = h5[i][:]
 
     def __len__(self):
         return self._len
