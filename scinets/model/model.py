@@ -149,7 +149,7 @@ class NeuralNet:
 class UNet(NeuralNet):
     def __init__(self, input_var, architecture, skip_connections, name=None,
                  is_training=None, true_out=None, loss_function=None,
-                 loss_kwargs=None, verbose=False):
+                 device=None, loss_kwargs=None, verbose=False):
         self.skip_connections = skip_connections
         super().__init__(
             input_var=input_var,
@@ -159,6 +159,7 @@ class UNet(NeuralNet):
             true_out=true_out,
             loss_function=loss_function,
             loss_kwargs=loss_kwargs,
+            device=device,
             verbose=verbose    
         )
 
