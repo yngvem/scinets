@@ -18,7 +18,7 @@ class HDFData:
     """Wrapper for HDF5 files for tensorflow. Creates a Tensorflow dataset.
     """
     def __init__(self, data_path, batch_size, group='train', dataset='images',
-                 target='masks', prefetch=1, , keep_in_ram=False,
+                 target='masks', prefetch=1, keep_in_ram=False,
                  name='data_reader'):
         """Setup the data reader.
 
