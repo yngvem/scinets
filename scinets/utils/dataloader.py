@@ -129,8 +129,15 @@ class HDFData:
         """
         dataset = {}
         with h5py.File(self.data_path, 'r') as h5:
-            for i in h5:
-                dataset[i] = h5[i][:]
+            group = h5[self.group]
+
+            images = group[self.data_name][:]
+            image_shapes = (-1, *tuple(self.shapes[self.image_name]))
+            dataset[self.data_name] = image.reshape(image_shapes)
+
+            targets = group[self.target_name][:]
+            target_shapes = (-1, *tuple(self.shapes[self.target_name]))
+            dataset[self.target_name] = target.reshape(target_shapes)
 
     def __len__(self):
         return self._len
