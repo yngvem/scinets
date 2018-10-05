@@ -63,7 +63,7 @@ class HDFData:
             self.target_shape = self._get_dataset_shape(g, target)
 
         if keep_in_ram:
-            self.dataset = self._extract_dataset_as_dict()
+            self.data_dict = self._extract_dataset_as_dict()
 
         # Get tensorflow dataset and related objects
         with tf.variable_scope(name):
@@ -142,10 +142,10 @@ class HDFData:
             group = h5[self.group]
 
             images = group[self.data_name][:]
-            group_dict[self.data_name] = image.reshape(-1, *self.data_shape)
+            group_dict[self.data_name] = images.reshape(-1, *self.data_shape)
 
             targets = group[self.target_name][:]
-            group_dict[self.target_name] = target.reshape(-1, *self.target_shape)
+            group_dict[self.target_name] = targets.reshape(-1, *self.target_shape)
         return {self.group: group_dict}
 
     def __len__(self):
