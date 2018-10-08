@@ -1,13 +1,13 @@
 import tensorflow as tf
 
-def softmax_cross_entropy_with_logits(prediction, target, name):
+def softmax_cross_entropy_with_logits(prediction, target, name=None):
     return tf.nn.softmax_cross_entropy_with_logits(
         labels=target,
         logits=prediction,
         name=name
     )
 
-def sigmoid_cross_entropy_with_logits(prediction, target, name):
+def sigmoid_cross_entropy_with_logits(prediction, target, name=None):
     return tf.nn.sigmoid_cross_entropy_with_logits(
         labels=target,
         logits=prediction,
