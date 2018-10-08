@@ -1,15 +1,17 @@
 import tensorflow as tf
 
-softmax_cross_entropy_with_logits = tf.nn.softmax_cross_entropy_with_logits
-sigmoid_cross_entropy_with_logits = tf.nn.sigmoid_cross_entropy_with_logits
-
 def softmax_cross_entropy_with_logits(prediction, target, name):
-    return softmax_cross_entropy_with_logits(labels=target, logits=prediction,
-                                             name=name)
+    return tf.nn.softmax_cross_entropy_with_logits(
+        labels=target,
+        logits=prediction,
+        name=name
+    )
 
 def sigmoid_cross_entropy_with_logits(prediction, target, name):
-    return sigmoid_cross_entropy_with_logits(labels=target, logits=prediction,
-                                             name=name)
+    return tf.nn.sigmoid_cross_entropy_with_logits(
+        labels=target,
+        logits=prediction,
+        name=name)
 
 def binary_dice(prediction, target, name='binary_dice_loss'):
     size = len(prediction.get_shape().as_list())
