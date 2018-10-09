@@ -682,7 +682,7 @@ class ResnetConv2D(BaseLayer):
 
 
 class ResnetUpconv2D(ResnetConv2D):
-    def _build_layer(self, out_size, k_size=3, use_bias=True, strides=1
+    def _build_layer(self, out_size, k_size=3, use_bias=True, strides=1,
                      verbose=False):
         """
         Creates an imporved ResNet layer as described in [1]
