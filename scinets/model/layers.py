@@ -681,6 +681,56 @@ class ResnetConv2D(BaseLayer):
         )
 
 
+class ResnetUpconv2D(ResnetConv2D):
+    def _generate_residual_path(self, out_size, k_size=3, use_bias=True,
+                                strides=1):
+        res_path = self.normalizer(self.input, training=self.is_training,
+                                   name='BN_1')
+        res_path = self.activation(res_path)
+        res_path = tf.layers.conv2d(
+            res_path,
+            self.input.get_shape().as_list()[-1],
+            kernel_size=k_size,
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            padding='SAME',
+            kernel_regularizer=self.regularizer,
+            name='conv2d_1'
+        )
+        res_path = self.normalizer(res_path, training=self.is_training,
+                                   name='BN_2')
+        res_path = self.activation(res_path)
+
+        res_path = tf.layers.conv2d_transpose(
+            res_path,
+            out_size,
+            kernel_size=k_size,
+            use_bias=use_bias,
+            kernel_initializer=self.initializer,
+            strides=strides,
+            padding=padding,
+            kernel_regularizer=self.regularizer
+        )
+
+        return res_path
+
+    def _generate_skip_connection(self, out_size, strides):
+        skip = self.input
+        shape = skip.get_shape()
+        if out_size != shape[-1]:
+            skip = tf.layers.conv2d(
+                self.input,
+                out_size,
+                kernel_size=1,
+                use_bias=True,
+                kernel_initializer=self.initializer,
+                kernel_regularizer=self.regularizer,
+                name='conv2d_skip'
+            )
+        return tf.image.resize_images(skip, out_size, align_corners=True
+                                      method=tf.image.ResizeMethod.BILINEAR)
+
+
 class ResnetLKM2D(ResnetConv2D):
     """The Resnet node described in [1]
 
