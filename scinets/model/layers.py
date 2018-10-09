@@ -718,8 +718,12 @@ class ResnetUpconv2D(ResnetConv2D):
         ValueError
             If the initialiser is not valid.
         """
-        res_path = self._generate_residual_path(out_size, k_size, use_bias,
-                                                strides)
+        res_path = self._generate_residual_path(
+            out_size=out_size,
+            k_size=k_size,
+            use_bias=use_bias,
+            strides=strides
+        )
         skip = self._generate_skip_connection(out_size, strides)
 
         # Compute ResNet output
@@ -758,10 +762,12 @@ class ResnetUpconv2D(ResnetConv2D):
 
         return res_path
 
-    def _generate_skip_connection(self, out_size, strides):
+    def _generate_skip_connection(self, out_size, strides=1):
+        if isinstance(strides, int):
+            strides = [strides, strides]
         skip = self.input
         shape = skip.get_shape().as_list()
-        new_size = [shape[1]*2, shape[2]*2]
+        new_size = [shape[1]*strides[0], shape[2]*strides[1]]
 
         if out_size != shape[-1]:
             skip = tf.layers.conv2d(
