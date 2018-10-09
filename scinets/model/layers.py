@@ -752,7 +752,7 @@ class ResnetUpconv2D(ResnetConv2D):
             use_bias=use_bias,
             kernel_initializer=self.initializer,
             strides=strides,
-            padding=padding,
+            padding='SAME',
             kernel_regularizer=self.regularizer
         )
 
