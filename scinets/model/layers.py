@@ -760,7 +760,9 @@ class ResnetUpconv2D(ResnetConv2D):
 
     def _generate_skip_connection(self, out_size, strides):
         skip = self.input
-        shape = skip.get_shape()
+        shape = skip.get_shape().as_list()
+        new_size = [shape[1]*2, shape[2]*2]
+
         if out_size != shape[-1]:
             skip = tf.layers.conv2d(
                 self.input,
@@ -771,7 +773,7 @@ class ResnetUpconv2D(ResnetConv2D):
                 kernel_regularizer=self.regularizer,
                 name='conv2d_skip'
             )
-        return tf.image.resize_images(skip, out_size, align_corners=True,
+        return tf.image.resize_images(skip, new_size, align_corners=True,
                                       method=tf.image.ResizeMethod.BILINEAR)
 
 
