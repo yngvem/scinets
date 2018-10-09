@@ -727,7 +727,7 @@ class ResnetUpconv2D(ResnetConv2D):
                 kernel_regularizer=self.regularizer,
                 name='conv2d_skip'
             )
-        return tf.image.resize_images(skip, out_size, align_corners=True
+        return tf.image.resize_images(skip, out_size, align_corners=True,
                                       method=tf.image.ResizeMethod.BILINEAR)
 
 
