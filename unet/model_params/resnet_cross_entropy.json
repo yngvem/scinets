@@ -4,10 +4,10 @@
         "loss_function": "sigmoid_cross_entropy_with_logits",
         "loss_kwargs": {},
         "skip_connections": [
-            ["resnet_conv2", "upscale4"],
-            ["resnet_conv4", "upscale3"],
-            ["resnet_conv6", "upscale2"],
-            ["resnet_conv8", "upscale1"]
+            ["resnet_conv2", "resnet_upconv4"],
+            ["resnet_conv4", "resnet_upconv3"],
+            ["resnet_conv6", "resnet_upconv2"],
+            ["resnet_conv8", "resnet_upconv1"]
         ],
         "architecture": [
                 {
@@ -209,10 +209,21 @@
                     }
                 },
                 {
-                    "layer": "LinearInterpolation",
-                    "scope": "upscale1",
+                    "layer": "ResnetUpconv2D",
+                    "scope": "resnet_upconv1",
                     "layer_params": {
-                        "rate": 2
+                        "out_size": 512,
+                        "k_size": 3,
+                        "strides": 2
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
                     }
                 },
                 {
@@ -250,10 +261,21 @@
                     }
                 },
                 {
-                    "layer": "LinearInterpolation",
-                    "scope": "upscale2",
+                    "layer": "ResnetUpconv2D",
+                    "scope": "resnet_upconv2",
                     "layer_params": {
-                        "rate": 2
+                        "out_size": 256,
+                        "k_size": 3,
+                        "strides": 2
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
                     }
                 },
                 {
@@ -291,10 +313,21 @@
                     }
                 },
                 {
-                    "layer": "LinearInterpolation",
-                    "scope": "upscale3",
+                    "layer": "ResnetUpconv2D",
+                    "scope": "resnet_upconv3",
                     "layer_params": {
-                        "rate": 2
+                        "out_size": 128,
+                        "k_size": 3,
+                        "strides": 2
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
                     }
                 },
                 {
@@ -332,10 +365,21 @@
                     }
                 },
                 {
-                    "layer": "LinearInterpolation",
-                    "scope": "upscale4",
+                    "layer": "ResnetUpconv2D",
+                    "scope": "resnet_upconv4",
                     "layer_params": {
-                        "rate": 2
+                        "out_size": 64,
+                        "k_size": 3,
+                        "strides": 2
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
                     }
                 },
                 {
