@@ -682,6 +682,50 @@ class ResnetConv2D(BaseLayer):
 
 
 class ResnetUpconv2D(ResnetConv2D):
+    def _build_layer(self, out_size, k_size=3, use_bias=True, strides=1
+                     verbose=False):
+        """
+        Creates an imporved ResNet layer as described in [1]
+
+        For implementation reasons, this always uses padding.
+
+        [1]: `Identity Mappings in Deep Residual Networks`.
+
+        Parameters
+        ----------
+        x : tensorflow.Variable
+            The input tensor to this layer
+        out_size : int
+            The shape of the vector out of this layer
+        use_bias : bool
+            Wether or not this layer should have a bias term
+        strides : int or array_like (length=2)
+            The strides used for this layer. Asymmetric strides are accepted as a
+            length two array, where the first number is the vertical strides and 
+            the second number is the horizontal strides.
+        scope : str
+            The scope of this layer (two layers can't share scope).
+        verbose : bool
+            Wether intermediate steps should be printed in console.
+
+        Returns:
+        --------
+        out : tensorflow.Variable
+            Output tensor of this layer
+
+        Raises:
+        -------
+        ValueError
+            If the initialiser is not valid.
+        """
+        res_path = self._generate_residual_path(out_size, k_size, use_bias,
+                                                strides)
+        skip = self._generate_skip_connection(out_size, strides)
+
+        # Compute ResNet output
+        out = skip + res_path
+        return out
+
     def _generate_residual_path(self, out_size, k_size=3, use_bias=True,
                                 strides=1):
         res_path = self.normalizer(self.input, training=self.is_training,
