@@ -12,9 +12,9 @@
                     "layer": "Conv2D",
                     "scope": "conv1",
                     "layer_params": {
-                        "out_size": 64,
-                        "k_size": 7,
-                        "strides": 2
+                        "out_size": 8,
+                        "k_size": 3,
+                        "strides": 4
                     },
                     "normalizer": {
                         "operator": "batch_normalization"
@@ -30,9 +30,9 @@
                     "layer": "ResnetConv2D",
                     "scope": "conv2",
                     "layer_params": {
-                        "out_size": 16,
-                        "k_size": 5,
-                        "strides": 2
+                        "out_size": 8,
+                        "k_size": 3,
+                        "strides": 4
                     },
                     "normalizer": {
                         "operator": "batch_normalization"
@@ -48,8 +48,8 @@
                     "layer": "ResnetConv2D",
                     "scope": "conv3",
                     "layer_params": {
-                        "out_size": 16,
-                        "k_size": 5
+                        "out_size": 8,
+                        "k_size": 3
                     },
                     "normalizer": {
                         "operator": "batch_normalization"
@@ -65,8 +65,8 @@
                     "layer": "ResnetConv2D",
                     "scope": "conv4",
                     "layer_params": {
-                        "out_size": 32,
-                        "k_size": 5
+                        "out_size": 16,
+                        "k_size": 3
                     },
                     "normalizer": {
                         "operator": "batch_normalization"
@@ -81,14 +81,14 @@
                 {
                     "layer": "LinearInterpolate",
                     "scope": "linear_upsample_1",
-                    "layer_params": {"rate": 2}
+                    "layer_params": {"rate": 4}
                 },
                 {
                     "layer": "ResnetConv2D",
                     "scope": "conv5",
                     "layer_params": {
-                        "out_size": 32,
-                        "k_size": 5
+                        "out_size": 16,
+                        "k_size": 3
                     },
                     "normalizer": {
                         "operator": "batch_normalization"
@@ -103,14 +103,14 @@
                 {
                     "layer": "LinearInterpolate",
                     "scope": "linear_upsample_2",
-                    "layer_params": {"rate": 2}
+                    "layer_params": {"rate": 4}
                 },
                 {
                     "layer": "ResnetConv2D",
                     "scope": "conv6",
                     "layer_params": {
-                        "out_size": 64,
-                        "k_size": 5
+                        "out_size": 32,
+                        "k_size": 3
                     },
                     "normalizer": {
                         "operator": "batch_normalization"
@@ -127,13 +127,13 @@
                     "scope": "conv7",
                     "layer_params": {
                         "out_size": 1,
-                        "k_size": 5
+                        "k_size": 3
                     },
                     "normalizer": {
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "linear"
+                        "operator": "sigmoid"
                     },
                     "initializer": {
                         "operator": "he_normal"
