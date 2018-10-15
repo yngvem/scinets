@@ -67,7 +67,9 @@ class HDFData:
 
         # Get tensorflow dataset and related objects
         with tf.variable_scope(name):
-            self._next_el_op = self._get_next_el_op()
+            self.tf_iterator = self._get_tf_iterator()
+            self.initializer = self.tf_iterator.initializer
+            self._next_el_op = self.tf_iterator.get_next()
 
     def _get_dataset_shape(self, h5, name):
         g = h5[self.group]
@@ -76,7 +78,7 @@ class HDFData:
         else:
             return tuple(g[name].shape[1:])
 
-    def _get_next_el_op(self):
+    def _get_tf_iterator(self):
         output_types = (tf.int16, tf.float32, tf.float32)
         output_shapes = ([], self.data_shape, self.target_shape)
 
@@ -86,8 +88,7 @@ class HDFData:
             output_shapes=output_shapes
             ).repeat().batch(self.batch_size).prefetch(self.prefetch)
 
-        tf_iterator = tf_dataset.make_one_shot_iterator()
-        return tf_iterator.get_next()
+        return tf_dataset.make_initializable_iterator()
 
     def _get_image_and_target(self, idx, h5):
         """Extract the input and output data of given index from a HDF5 file.
@@ -303,6 +304,11 @@ class HDFDataset:
             )
 
     @property
+    def initializers(self):
+        return [self.train_data_reader.initializer,
+                self.test_data_reader.initializer,
+                self.val_data_reader.initializer]
+    @property
     def data(self):
         return self._conditional_data
 
@@ -365,6 +371,7 @@ class MNISTDataset(HDFDataset):
         self._data_it_num = 0
         self._labels_it_num = 0
         with tf.variable_scope(name):
+            self.initializers = []
             self._train_next_el_op = self._get_next_el_op(self._iterate_train_dataset)
             self._val_next_el_op = self._get_next_el_op(self._iterate_val_dataset)
 

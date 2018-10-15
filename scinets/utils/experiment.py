@@ -170,7 +170,7 @@ class NetworkExperiment:
     def _init_session(self, sess):
         """Initialise the session. Must be run before any training iterations.
         """
-        sess.run(tf.global_variables_initializer())
+        sess.run([tf.global_variables_initializer(), self.dataset.initializers])
         if self.continue_old:
             self.trainer.load_state(sess)
         self.tb_logger.init_file_writers(sess)
