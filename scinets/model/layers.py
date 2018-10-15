@@ -634,7 +634,7 @@ class ResnetConv2D(BaseLayer):
         return res_path
 
     def _generate_skip_connection(self, out_size, strides):
-        shape = self.input.get_shape()
+        shape = self.input.get_shape().as_list()
         if out_size != shape[-1]:
             return tf.layers.conv2d(
                 self.input,
@@ -649,9 +649,9 @@ class ResnetConv2D(BaseLayer):
             )
         elif strides != 1:
             if isinstance(strides, int):
-                new_shape = [shape[1]/strides, shape[2]/strides]
+                new_shape = np.ceil([shape[1]/strides, shape[2]/strides])
             else: 
-                new_shape = [shape[1]/strides[0], shape[2]/strides[1]]
+                new_shape = np.ceil([shape[1]/strides[0], shape[2]/strides[1]])
 
             return tf.image.resize_images(
                 self.input,
