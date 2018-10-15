@@ -6,7 +6,7 @@ from ..model import model
 from ..trainer import NetworkTrainer
 from ..utils import TensorboardLogger, SacredLogger
 from ..utils import evaluator
-from ..utils import HDFDataset, MNISTDataset
+from ..data import HDFDataset, MNISTDataset
 
 
 class NetworkExperiment:

@@ -1,5 +1,4 @@
 """
-TODO: Remove unnecessary batch sizes!!!
 """
 
 
@@ -12,6 +11,7 @@ import h5py
 import tensorflow as tf
 from contextlib import contextmanager
 from tensorflow.examples.tutorials.mnist import input_data
+from . import preprocessing
 
 
 class HDFData:
@@ -119,11 +119,27 @@ class HDFData:
             with h5py.File(self.data_path, 'r') as h5:
                 yield from self._iterate_dataset_randomly(h5)
             
-    def _iterate_dataset_randomly(self, dataset):
+    @staticmethod
+    def _get_preprocess_function(preprocess):
+        if preprocess is None:
+            def preprocess(idx, image, target):
+                return idx, image, target
+            return preprocess
+        elif isinstance(preprocess, str):
+            return getattr(preprocessing, preprocess)
+        elif callable(preprocess):
+            return preprocess
+        else:
+            raise ValueError('`preprocess` must be either `None`, a string or '
+                             'callable')
+
+    def _iterate_dataset_randomly(self, dataset, preprocess=None):
+        preprocess = self._get_preprocess_function(preprocess)
+
         idxes = np.arange(len(self))
         np.random.shuffle(idxes)
         for idx in idxes:
-            yield (idx, *self._get_image_and_target(idx, dataset))
+            yield preprocess(idx, *self._get_image_and_target(idx, dataset))
 
     def _extract_dataset_as_dict(self):
         """Returns a dictionary of numpy arrays that contain the dataset.
