@@ -1,5 +1,4 @@
 """
-TODO: Remove unnecessary batch sizes!!!
 """
 
 
@@ -12,14 +11,15 @@ import h5py
 import tensorflow as tf
 from contextlib import contextmanager
 from tensorflow.examples.tutorials.mnist import input_data
+from ..data import preprocessing
 
 
 class HDFData:
     """Wrapper for HDF5 files for tensorflow. Creates a Tensorflow dataset.
     """
     def __init__(self, data_path, batch_size, group='train', dataset='images',
-                 target='masks', prefetch=1, keep_in_ram=False,
-                 name='data_reader'):
+                 target='masks', prefetch=1, keep_in_ram=False, 
+                 preprocessor=None, name='data_reader'):
         """Setup the data reader.
 
         This will not prepare the dequeue instances. The `prepare_data`
@@ -41,6 +41,9 @@ class HDFData:
             performed. Used to reduce waiting time between training steps.
         keep_in_ram : bool
             If true, the whole dataset will be loaded to RAM.
+        preprocessor : str or None
+            The preproccesing method to use. Must be an element of the
+            `scinets.data.preprocessor` module.
         """
         group = group if group[0] == '/' else '/'+ group
 
@@ -51,6 +54,7 @@ class HDFData:
         self.keep_in_ram = keep_in_ram
         self.batch_size = batch_size
         self.prefetch = prefetch
+        self.preprocessor = self._get_preprocessor(preprocessor)
 
         # The order in which the samples was drawn
         self.trained_order = []
@@ -59,12 +63,12 @@ class HDFData:
         with h5py.File(data_path) as h5:
             g = h5[self.group]
             self._len = g[dataset].shape[0]
-            self.data_shape = self._get_dataset_shape(g, dataset)
+            self.h5_shape = self._get_dataset_shape(g, dataset)
             self.target_shape = self._get_dataset_shape(g, target)
 
         if keep_in_ram:
             self.data_dict = self._extract_dataset_as_dict()
-
+    
         # Get tensorflow dataset and related objects
         with tf.variable_scope(name):
             self.tf_iterator = self._get_tf_iterator()
@@ -72,11 +76,21 @@ class HDFData:
             self._next_el_op = self.tf_iterator.get_next()
 
     def _get_dataset_shape(self, h5, name):
+        """Return the shape of the h5 dataset.
+        """
         g = h5[self.group]
         if 'shape' in g[name].attrs:
             return tuple(g[name].attrs['shape'])
         else:
             return tuple(g[name].shape[1:])
+
+    @property
+    def data_shape(self):
+        """Return the output shape of this dataset after preprocessing.
+        """
+        channels = self.h5_shape[-1]
+        output_channels = self.preprocessor.output_channels(channels)
+        return (*self.h5_shape[:-1], output_channels)
 
     def _get_tf_iterator(self):
         output_types = (tf.int16, tf.float32, tf.float32)
@@ -104,7 +118,7 @@ class HDFData:
         group = h5[self.group]
 
         image = group[self.data_name][idx]
-        image = image.reshape(self.data_shape)
+        image = image.reshape(self.h5_shape)
 
         target = group[self.target_name][idx]
         target = target.reshape(self.target_shape)
@@ -120,11 +134,25 @@ class HDFData:
             with h5py.File(self.data_path, 'r') as h5:
                 yield from self._iterate_dataset_randomly(h5)
             
-    def _iterate_dataset_randomly(self, dataset):
+    @staticmethod
+    def _get_preprocessor(preprocess):
+        if preprocess is None:
+            return preprocess.Preprocessor()
+        elif isinstance(preprocess, dict):
+            operator = preprocess['operator']
+            kwargs = preprocess.get('arguments', {})
+            return getattr(preprocessing, operator)(**kwargs)
+        elif callable(preprocess):
+            return preprocess
+        else:
+            raise ValueError('`preprocess` must be either `None` or a dict')
+
+    def _iterate_dataset_randomly(self, dataset, preprocess=None):
         idxes = np.arange(len(self))
         np.random.shuffle(idxes)
         for idx in idxes:
-            yield (idx, *self._get_image_and_target(idx, dataset))
+            image, target = self._get_image_and_target(idx, dataset)
+            yield idx, self.preprocessor(image), target
 
     def _extract_dataset_as_dict(self):
         """Returns a dictionary of numpy arrays that contain the dataset.
@@ -143,7 +171,7 @@ class HDFData:
             group = h5[self.group]
 
             images = group[self.data_name][:]
-            group_dict[self.data_name] = images.reshape(-1, *self.data_shape)
+            group_dict[self.data_name] = images.reshape(-1, *self.h5_shape)
 
             targets = group[self.target_name][:]
             group_dict[self.target_name] = targets.reshape(-1, *self.target_shape)
@@ -175,7 +203,7 @@ class HDFDataset:
     def __init__(self, data_path, batch_size, train_group='train', 
                  val_group='validation', test_group='test', dataset='images',
                  target='masks', prefetch=1, keep_in_ram=False,
-                 is_training=None, is_testing=None):
+                 preprocessor=None, is_training=None, is_testing=None):
         """Setup the data reader.
 
         The HDF5 file should have one group for the training set, one for the
@@ -206,6 +234,9 @@ class HDFDataset:
             performed. Used to reduce waiting time between training steps.
         keep_in_ram : bool
             If true, the whole dataset will be loaded to RAM.
+        preprocessor : str or None
+            The preproccesing method to use. Must be an element of the
+            `scinets.data.preprocessor` module.
         is_training : tensorflow.Placeholder(bool, [])
             Placeholder used to specify whether the training data should be
             the output or not.
@@ -236,6 +267,7 @@ class HDFDataset:
                 target=target,
                 prefetch=prefetch,
                 keep_in_ram=keep_in_ram,
+                preprocessor=preprocessor,
                 name='train_reader'
             )
             self.val_data_reader = HDFData(
@@ -246,6 +278,7 @@ class HDFDataset:
                 target=target,
                 prefetch=prefetch,
                 keep_in_ram=keep_in_ram,
+                preprocessor=preprocessor,
                 name='val_reader'
             )
             self.test_data_reader = HDFData(
@@ -256,6 +289,7 @@ class HDFDataset:
                 target=target,
                 prefetch=prefetch,
                 keep_in_ram=keep_in_ram,
+                preprocessor=preprocessor,
                 name='test_reader'
             )
             self._create_conditionals()

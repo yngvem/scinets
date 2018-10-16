@@ -1,6 +1,14 @@
 {
     "data_path": "/home/yngve/dataset_extraction/val_split_2d.h5",
-    "batch_size": [8, 256, 1],
-    "val_group": "val"
+    "batch_size": [8, 8, 1],
+    "val_group": "val",
+    "preprocessor": {
+        "operator": "MultipleHoundsfieldWindowsPreprocessor",
+        "arguments": {
+            "window_widths": [200, 100],
+            "window_centers": [70, 70],
+            "houndsfield_offset": 1024
+        }
+    }
 }
 
