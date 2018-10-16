@@ -1,5 +1,5 @@
 {
-    "val_log_frequency": 100,
+    "val_log_frequency": 10,
     "evaluator": "BinaryClassificationEvaluator",
     "tb_params": {
         "log_all_params": false,
@@ -32,18 +32,25 @@
                 "log_kwargs": {"max_outputs":1}
             },
             {
-                "log_name": "CT",
+                "log_name": "PET",
                 "log_var": "input",
                 "log_type": "image",
                 "log_kwargs": {"max_outputs": 1,
                             "channel": 0}
             },
             {
-                "log_name": "PET",
+                "log_name": "CT1",
                 "log_var": "input",
                 "log_type": "image",
                 "log_kwargs": {"max_outputs": 1,
                                "channel": 1}
+            },
+            {
+                "log_name": "CT2",
+                "log_var": "input",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs": 1,
+                               "channel": 2}
             },
             {
                 "log_name": "Probability_map",
