@@ -13,8 +13,8 @@ import numpy as np
 class Preprocessor:
     """Superclass for all preprocessors. Does nothing.
     """
-    def __call__(self, idx, images, target):
-        return idx, images, target
+    def __call__(self, images):
+        return images
 
     def output_channels(self, input_channels):
         """The number of output channels as a function of input channels.
@@ -38,7 +38,7 @@ class ProcessingPipeline(Preprocessor):
     
     def __call__(self, images):
         for preprocessor in self.preprocessors:
-            images = preprocessor(idx, images, target)
+            images = preprocessor(images)
         return images
 
     def output_channels(self, input_channels):
