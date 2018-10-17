@@ -52,6 +52,11 @@ def parse_arguments():
         type=int
     )
     parser.add_argument(
+        "--eval",
+        help="The evaluation metric to use when finding the best architecture.",
+        type=str
+    )
+    parser.add_argument(
         "--name",
         help="The name of the experiment used for logging.",
         type=str
@@ -59,7 +64,7 @@ def parse_arguments():
 
     args = parser.parse_args()
     db_credentials = load_yaml(args.database_credentials)
-    return db_credentials, Path(args.experiment), args.num_steps, args.name
+    return db_credentials, Path(args.experiment), args.num_steps, args.name, args.eval
 
 
 class SmartFormatter(argparse.HelpFormatter):
@@ -76,7 +81,7 @@ def create_experiment(name, db_params):
 
 
 if __name__ == '__main__':
-    db_params, data_path, num_steps, name = parse_arguments()
+    db_params, data_path, num_steps, name, eval_metric = parse_arguments()
     if name is None:
         name = load_json(data_path/'experiment_params.json')['name']
 
@@ -103,5 +108,17 @@ if __name__ == '__main__':
             trainer_params=trainer_params,
             log_params=log_params,
         )
+        if eval_metric is not None:
+            if not hasattr(experiment.evaluator, eval_metric):
+                raise ValueError('The final evaluation metric must be a '
+                                 'parameter of the network evaluator.')
         experiment.train(num_steps)
+        if eval_metric is not None:
+            best_it, (result, result_std) = experiment.find_best_model('val',
+                                                                       eval_metric)
+            print(f'{" Final score ":=^80s}')
+            print(f' Achieved a {eval_metric:s} of {result:.3f}, with a standard '
+                  f'deviation of {result_std:.3f}')
+            print(f' This result was achieved at iteration {best_it}')
+            print(80*"=")
     ex.run()
