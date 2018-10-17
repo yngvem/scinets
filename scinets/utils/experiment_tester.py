@@ -1,5 +1,6 @@
 """
-
+TODO: BATCH NORM WILL NOW THINK WE ARE TRAINING IF WE WANT TO COMPUTE PERFORMANCE
+      METRICS ON TRAINING SET!!!
 """
 
 
@@ -12,8 +13,12 @@ import tensorflow as tf
 
 
 class ExperimentTester:
-    def __init__(self, experiment, evaluator):
-        self.experiment = experiment
+    def __init__(self, metrics, dataset, evaluator):
+        self.metrics = metrics
+        self.performance_ops = [
+            {metric: getattr(evaluator, metric)} for metric in metrics
+        ]
+        self.dataset = dataset
         self.evaluator = evaluator
 
     def get_numits(self, dataset):
@@ -30,20 +35,56 @@ class ExperimentTester:
             return {train_name: True}
         elif dataset == 'val':
             return {train_name: False, test_name: False}
-        elif dataset == test:
+        elif dataset == 'test':
             return {train_name: False, test_name: True}
         else:
             raise ValueError('`dataset` must be either `train`, `val` or `test`')
 
-    def test_experiment(self, dataset):
-        placeholders = self.get_placeholders(datset)
-        num_its = self.get_numits(self, dataset)
+    @staticmethod
+    def _join_performance_metric(performances, metric):
+        return np.concatenate([batch[metric] for batch in performance], axis=0)
 
-        # TODO: Finish this
-        
+    @staticmethod
+    def _compute_performances(performances, metric):
+        performances = self._join_performance_metric(performances, metric)
+        return performance.mean(), performance.std(ddof=1)
 
+    @staticmethod
+    def _create_performance_dict(performances):
+        return {
+            metric: self._compute_performances(perfomances, metric)
+                for metric in performances[0]
+        }
 
+    def test_model(self, data_type, sess):
+        """Compute the performance metrics using the specified evaluator.
 
+        Arguments:
+        ----------
+        data_type : str
+            Specifies which dataset to use, should be equal to `train`, 
+            `val`, or `test`
+        sess : tensorflow.Session
+            The specified tensorflow session to use. All variables must be
+            initialised beforehand.
+        Returns:
+        --------
+        dict : 
+            Dictionary specifying the average and standard deviation of all
+            specified performance metrics. The keys are the metric names
+            and the values are tuples where the first element is the mean
+            and the second is the standard deviation.
+        """
+        feed_dict = self.get_feed_dict(data_type)
+        num_its = self.get_numits(self, data_type)
+
+        performance = []
+        for i in range(num_its):
+            performance.append(
+                sess.run(self.performance_metrics, feed_dict=feed_dict)
+            )
+
+        return self._create_performance_dict(performances)
 
 
 if __name__ == '__main__':
