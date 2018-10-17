@@ -43,4 +43,6 @@ if __name__ == '__main__':
             trainer_params=trainer_params,
             log_params=log_params,
         )
-        experiment.train(50000)
+        experiment.train(60)
+        print(experiment.find_best_model('val', 'dice'))
+        

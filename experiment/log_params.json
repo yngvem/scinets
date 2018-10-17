@@ -102,5 +102,8 @@
                 "log_var": "recall"
             }
         ]
+    },
+    "network_tester": {
+        "metrics": ["dice"]
     }
 }
