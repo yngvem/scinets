@@ -1,3 +1,4 @@
+import numpy as np
 import tensorflow as tf
 import sacred
 from pathlib import Path
@@ -98,6 +99,7 @@ class NetworkExperiment:
         self.trainer = self._get_trainer(trainer_params)
         self.evaluator = self._get_evaluator(log_params['evaluator'])
         self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
+        self.network_tester = self._get_network_tester(log_params['network_tester'])
 
     def _get_continue_old(self, experiment_params):
         """Extract whether an old experiment should be continued.
@@ -167,12 +169,24 @@ class NetworkExperiment:
             **tensorboard_params
         )
 
-    def _init_session(self, sess):
+    def _get_network_tester(self, network_tester_params):
+        return evaluator.NetworkTester(
+            evaluator=self.evaluator,
+            dataset=self.dataset,
+            is_training=self.dataset.is_training,
+            is_testing = self.dataset.is_testing,
+            **network_tester_params
+        )
+
+    def _init_session(self, sess, continue_old=None, step_num=None):
         """Initialise the session. Must be run before any training iterations.
         """
+        if continue_old is None:
+            continue_old = self.continue_old
+
         sess.run([tf.global_variables_initializer(), self.dataset.initializers])
-        if self.continue_old:
-            self.trainer.load_state(sess)
+        if continue_old:
+            self.trainer.load_state(sess, step_num=step_num)
         self.tb_logger.init_file_writers(sess)
 
     def _train_its(self, sess):
@@ -202,9 +216,35 @@ class NetworkExperiment:
             for i in iterator(num_vals):
                 self._train_its(sess)
 
+    def evaluate_model(self, dataset_type, step_num=None):
+        with tf.Session() as sess:
+            self._init_session(sess, continue_old=True, step_num=step_num)
+            return self.network_tester.test_model(dataset_type, sess)
+
+    def get_all_checkpoint_its(self):
+        checkpoint_dir = self.trainer.log_dir
+        checkpoints = checkpoint_dir.glob('checkpoint-*.index')
+
+        def checkpoint_to_it(checkpoint):
+            checkpoint = str(checkpoint)
+            it_num = checkpoint.split('-')[1].split('.')[0]
+            return int(it_num)
+        return [checkpoint_to_it(ch) for ch in checkpoints]
+
+    def find_best_model(self, dataset_type, performance_metric):
+        """Returns the iteration number and performance of the best model
+        """
+        checkpoint_its = self.get_all_checkpoint_its()
+
+        performances = [self.evaluate_model(dataset_type, it)[performance_metric]
+                            for it in checkpoint_its]
+        performances_means = [p[0] for p in performances]
+
+        best_it_idx = np.argmax(performances_means)
+        return checkpoint_its[best_it_idx], performances[best_it_idx]
 
 
-class SacredExperiment(NetworkExperiment):
+class SacredExperiment(NetworkExperiment): 
     def __init__(self, _run, experiment_params, model_params, dataset_params,
                  trainer_params, log_params):
         """
@@ -299,6 +339,7 @@ class SacredExperiment(NetworkExperiment):
         self.evaluator = self._get_evaluator(log_params['evaluator'])
         self.tb_logger = self._get_tensorboard_logger(log_params['tb_params'])
         self.sacred_logger = self._get_sacred_logger(log_params['sacred_params'])
+        self.network_tester = self._get_network_tester(log_params['network_tester'])
 
 
     def _train_steps(self, sess):
