@@ -135,15 +135,15 @@ class HDFData:
                 yield from self._iterate_dataset_randomly(h5)
             
     @staticmethod
-    def _get_preprocessor(preprocess):
-        if preprocess is None:
-            return preprocess.Preprocessor()
+    def _get_preprocessor(preprocessor):
+        if preprocessor is None:
+            return preprocessing.Preprocessor()
         elif isinstance(preprocess, dict):
-            operator = preprocess['operator']
-            kwargs = preprocess.get('arguments', {})
+            operator = preprocessor['operator']
+            kwargs = preprocessor.get('arguments', {})
             return getattr(preprocessing, operator)(**kwargs)
-        elif callable(preprocess):
-            return preprocess
+        elif callable(preprocessor):
+            return preprocessor
         else:
             raise ValueError('`preprocess` must be either `None` or a dict')
 
