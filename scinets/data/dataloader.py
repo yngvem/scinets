@@ -138,7 +138,7 @@ class HDFData:
     def _get_preprocessor(preprocessor):
         if preprocessor is None:
             return preprocessing.Preprocessor()
-        elif isinstance(preprocess, dict):
+        elif isinstance(preprocessor, dict):
             operator = preprocessor['operator']
             kwargs = preprocessor.get('arguments', {})
             return getattr(preprocessing, operator)(**kwargs)
