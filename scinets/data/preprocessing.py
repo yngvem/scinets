@@ -14,6 +14,8 @@ class Preprocessor:
     """Superclass for all preprocessors. Does nothing.
     """
     def __call__(self, images):
+        """The function being applied to the input images.
+        """
         return images
 
     def output_channels(self, input_channels):
