@@ -131,6 +131,12 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
 
 
 class NetworkTester:
+    """Used to compute the final performance of the network.
+
+    This class will iterate through the whole training, validation or test
+    dataset and compute the average performance metrics and their standard
+    deviation.
+    """
     def __init__(self, metrics, dataset, evaluator, is_training, is_testing):
         self.metrics = metrics
         self.performance_ops = {metric: getattr(evaluator, metric)
@@ -147,6 +153,19 @@ class NetworkTester:
         return int(np.ceil(data_len/batch_size))
     
     def get_feed_dict(self, dataset):
+        """Return the `feed_dict` used to choose the correct dataset type.
+
+        Parameters:
+        -----------
+        dataset_type : str
+            Used to decide which dataset to use, must be `train`, `val`
+            or `test`.
+        
+        Returns:
+        --------
+        dict : 
+            The feed dict to use when running the performance metrics.
+        """
         if dataset == 'train':
             return {self.is_training: True}
         elif dataset == 'val':
