@@ -50,6 +50,14 @@ class ProcessingPipeline(Preprocessor):
         return output_channels
 
 
+class ChannelRemover(Preprocessor):
+    def __init__(self, channel):
+        self.unwanted_channel = channel
+
+    def __call__(self, images):
+        return np.delete(images, self.unwanted_channel, axis=-1)
+
+
 class WindowingPreprocessor(Preprocessor):
     """Used to set the dynamic range of an image.
     """
