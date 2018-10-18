@@ -50,12 +50,15 @@ class ProcessingPipeline(Preprocessor):
         return output_channels
 
 
-class ChannelRemover(Preprocessor):
+class ChannelRemoverPreprocessor(Preprocessor):
     def __init__(self, channel):
         self.unwanted_channel = channel
 
     def __call__(self, images):
         return np.delete(images, self.unwanted_channel, axis=-1)
+
+    def output_channels(self, input_channels):
+        return input_channels-1
 
 
 class WindowingPreprocessor(Preprocessor):
