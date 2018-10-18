@@ -24,7 +24,7 @@ class Preprocessor:
         return input_channels
 
 
-class ProcessingPipeline(Preprocessor):
+class PreprocessingPipeline(Preprocessor):
     """Create a preprocessing pipeline form a list of preprocessors.
 
     The output of the first preprocessor is used as argument for the second,
