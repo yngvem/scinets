@@ -105,6 +105,6 @@ if __name__ == '__main__':
             f'deviation of {result_std:.3f}')
     print(80*"=")
 
-    print(f'{" Saving input and output to disk :=^80s}')
+    print(f'{" Saving input and output to disk ":=^80s}')
     experiment.save_outputs('val', 'val_input_output', best_it)
     print('Outputs saved')
