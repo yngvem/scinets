@@ -80,7 +80,6 @@ if __name__ == '__main__':
 
     from scinets.utils.experiment import NetworkExperiment
     experiment = NetworkExperiment(
-        _run=_run,
         experiment_params=experiment_params,
         model_params=model_params,
         dataset_params=dataset_params,
