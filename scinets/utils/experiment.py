@@ -258,6 +258,8 @@ class NetworkExperiment:
         performances = self.evaluate_all_checkpointed_models(dataset_type)
         
         performances_means = [p[0] for p in performances]
+        print(performances_means)
+        from pdb import set_trace; set_trace()
 
         best_it_idx = np.argmax(performances_means)
         return checkpoint_its[best_it_idx], performances[best_it_idx]
