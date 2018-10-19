@@ -231,17 +231,42 @@ class NetworkExperiment:
             return int(it_num)
         return [checkpoint_to_it(ch) for ch in checkpoints]
 
-    def find_best_model(self, dataset_type, performance_metric):
-        """Returns the iteration number and performance of the best model
+    def evaluate_all_checkpointed_models(self, dataset_type):
+        """Returns the performance for all models.
         """
         checkpoint_its = self.get_all_checkpoint_its()
 
-        performances = [self.evaluate_model(dataset_type, it)[performance_metric]
-                            for it in checkpoint_its]
+        return {it: self.evaluate_model(dataset_type, it)
+                    for it in checkpoint_its}
+
+    def _find_best_checkpoint(self, performances, metric):
+        """Find the best checkpoint from a dictionary of performance dicts.
+
+        The keys of the input dictionary should be iteration numbers and
+        the values should be dictionaries whose keys are metrics and values
+        are mean-std pairs corresponding to the specified metric.
+        """
+        from operator import itemgetter
+        _performance = [(it, *performance[metric]) 
+                            for it, performance in performances.items()]
+        best_it = sorted(_performance, key=itemgetter(1))
+        return best_it[0]
+
+    def find_best_model(self, dataset_type, performance_metric):
+        """Returns the iteration number and performance of the best model
+        """
+        performances = evaluate_all_checkpointed_models(dataset_type)
+        
         performances_means = [p[0] for p in performances]
 
         best_it_idx = np.argmax(performances_means)
         return checkpoint_its[best_it_idx], performances[best_it_idx]
+
+    def save_outputs(self, dataset_type, filename, step_num):
+        filename = self.log_dir / f'{filename}_{step_num}'
+        with tf.Session() as sess:
+            self._init_session(sess, continue_old=True, step_num=step_num)
+            self.network_tester.save_outputs(dataset_type, filename, sess)
 
 
 class SacredExperiment(NetworkExperiment): 

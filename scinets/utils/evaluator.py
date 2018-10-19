@@ -8,6 +8,7 @@ __email__ = 'yngve.m.moe@gmail.com'
 
 import tensorflow as tf
 import numpy as np
+import h5py
 
 
 class ClassificationEvaluator:
@@ -189,12 +190,12 @@ class NetworkTester:
                 for metric in performances[0]
         }
 
-    def test_model(self, data_type, sess):
+    def test_model(self, dataset_type, sess):
         """Compute the performance metrics using the specified evaluator.
 
         Arguments:
         ----------
-        data_type : str
+        dataset_type : str
             Specifies which dataset to use, should be equal to `train`, 
             `val`, or `test`
         sess : tensorflow.Session
@@ -208,8 +209,8 @@ class NetworkTester:
             and the values are tuples where the first element is the mean
             and the second is the standard deviation.
         """
-        feed_dict = self.get_feed_dict(data_type)
-        num_its = self.get_numits(data_type)
+        feed_dict = self.get_feed_dict(dataset_type)
+        num_its = self.get_numits(dataset_type)
 
         performances = []
         for i in range(num_its):
@@ -218,7 +219,47 @@ class NetworkTester:
             )
 
         return self._create_performance_dict(performances)
+    
+    def save_outputs(self, dataset_type, filename, sess, save_probabilities=False):
+        """Save all outputs from the network as a h5 file.
+        """
+        feed_dict = self.get_feed_dict(dataset_type)
+        num_its = self.get_numits(dataset_type)
 
+        prediction_op = self.evaluator.prediction
+        if save_probabilities:
+            prediction_op = self.evaluator.probabilities
 
+        run_ops = (prediction_op, self.dataset.idxes, self.dataset.data,
+                   self.dataset.target)
+
+        dataset = getattr(self.dataset, dataset_type)
+        data_len = len(dataset)
+        batch_size = dataset.batch_size
+
+        with h5py.File(filename, 'a') as h5:
+            data_group = h5.create_group(dataset_type)
+            idxes = data_group.create_dataset('idxes', dtype=np.int32,
+                                              shape=[batch_size], maxsize=[None])
+            images = data_group.create_dataset('images', dtype=np.float32,
+                                              shape=dataset.shape,
+                                              maxsize=[None, *dataset.shape[1:]])
+            prediction = data_group.create_dataset('prediction', dtype=np.float32,
+                                                   shape=dataset.shape,
+                                                   maxsize=[None, *dataset.shape[1:]])
+            masks = data_group.create_dataset('masks', dtype=np.float32,
+                                              shape=dataset.shape,
+                                              maxsize=[None, *dataset.shape[1:]])
+            for i in range(num_its):
+                curr_prediction, curr_idxes, curr_images, curr_masks = sess.run(
+                        run_ops, feed_dict=feed_dict
+                )
+                
+                idxes[i*batch_size:(i+1)*batch_size] = curr_idxes
+                images[i*batch_size:(i+1)*batch_size] = curr_images
+                prediction[i*batch_size:(i+1)*batch_size] = curr_prediction
+                masks[i*batch_size:(i+1)*batch_size] = curr_masks
+
+            
 if __name__ == '__main__':
     pass
