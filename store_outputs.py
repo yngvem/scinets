@@ -77,6 +77,8 @@ if __name__ == '__main__':
     log_params = load_json(data_path/'log_params.json')
     experiment_params = load_json(data_path/'experiment_params.json')
     experiment_params['name'] += f'_{model_version}'
+    print('Experiment_name')
+    experiment_params['continue_old'] = True
 
     from scinets.utils.experiment import NetworkExperiment
     experiment = NetworkExperiment(
