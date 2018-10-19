@@ -255,7 +255,7 @@ class NetworkExperiment:
     def find_best_model(self, dataset_type, performance_metric):
         """Returns the iteration number and performance of the best model
         """
-        performances = evaluate_all_checkpointed_models(dataset_type)
+        performances = self.evaluate_all_checkpointed_models(dataset_type)
         
         performances_means = [p[0] for p in performances]
 
