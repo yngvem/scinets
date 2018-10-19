@@ -245,10 +245,10 @@ class NetworkTester:
                                               shape=(1, *dataset.data_shape),
                                               maxshape=[None, *dataset.data_shape])
             prediction = data_group.create_dataset('prediction', dtype=np.float32,
-                                                   shape=(1, dataset.target_shape),
+                                                   shape=(1, *dataset.target_shape),
                                                    maxshape=[None, *dataset.target_shape])
             masks = data_group.create_dataset('masks', dtype=np.float32,
-                                              shape=(1, dataset.target_shape),
+                                              shape=(1, *dataset.target_shape),
                                               maxshape=[None, *dataset.target_shape])
             for i in range(num_its):
                 curr_prediction, curr_idxes, curr_images, curr_masks = sess.run(
