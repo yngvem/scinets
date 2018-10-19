@@ -233,10 +233,10 @@ class NetworkTester:
         run_ops = (prediction_op, self.dataset.idxes, self.dataset.data,
                    self.dataset.target)
 
-        dataset = getattr(self.dataset, dataset_type)
+        dataset = getattr(self.dataset, f'{dataset_type}_data_reader')
         data_len = len(dataset)
         batch_size = dataset.batch_size
-
+        
         with h5py.File(filename, 'a') as h5:
             data_group = h5.create_group(dataset_type)
             idxes = data_group.create_dataset('idxes', dtype=np.int32,
@@ -254,7 +254,7 @@ class NetworkTester:
                 curr_prediction, curr_idxes, curr_images, curr_masks = sess.run(
                         run_ops, feed_dict=feed_dict
                 )
-                
+                 
                 idxes[i*batch_size:(i+1)*batch_size] = curr_idxes
                 images[i*batch_size:(i+1)*batch_size] = curr_images
                 prediction[i*batch_size:(i+1)*batch_size] = curr_prediction
