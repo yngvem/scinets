@@ -255,6 +255,7 @@ class NetworkTester:
                         run_ops, feed_dict=feed_dict
                 )
                  
+                from pdb import set_trace; set_trace()
                 idxes.resize((i+1*batch_size,))
                 images.resize((i+1*batch_size, *dataset.data_shape))
                 prediction.resize((i+1*batch_size, *dataset.target_shape))
