@@ -92,7 +92,7 @@ if __name__ == '__main__':
     if not hasattr(experiment.evaluator, eval_metric):
         raise ValueError('The final evaluation metric must be a '
                             'parameter of the network evaluator.')
-    best_it, (result, result_std) = experiment.find_best_model('val',
+    best_it, result, result_std = experiment.find_best_model('val',
                                                                 eval_metric)
     print(f'{" Final score ":=^80s}')
     print(f' Achieved a {eval_metric:s} of {result:.3f}, with a standard '

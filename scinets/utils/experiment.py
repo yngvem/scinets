@@ -257,10 +257,8 @@ class NetworkExperiment:
         """
         performances = self.evaluate_all_checkpointed_models(dataset_type)
         
-        performances_means = [p[0] for p in performances]
-
-        best_it_idx = np.argmax(performances_means)
-        return checkpoint_its[best_it_idx], performances[best_it_idx]
+        best_it, performance, std = self._find_best_checkpoint(performances, performance_metric)
+        return best_it, performance, std
 
     def save_outputs(self, dataset_type, filename, step_num):
         filename = self.log_dir / f'{filename}_{step_num}'
