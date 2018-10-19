@@ -256,10 +256,10 @@ class NetworkTester:
                 )
                  
                 from pdb import set_trace; set_trace()
-                idxes.resize((i+1*batch_size,))
-                images.resize((i+1*batch_size, *dataset.data_shape))
-                prediction.resize((i+1*batch_size, *dataset.target_shape))
-                masks.resize((i+1*batch_size, *dataset.target_shape))
+                idxes.resize(((i+1)*batch_size,))
+                images.resize(((i+1)*batch_size, *dataset.data_shape))
+                prediction.resize(((i+1)*batch_size, *dataset.target_shape))
+                masks.resize(((i+1)*batch_size, *dataset.target_shape))
 
                 idxes[i*batch_size:(i+1)*batch_size] = curr_idxes
                 images[i*batch_size:(i+1)*batch_size] = curr_images
