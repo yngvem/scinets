@@ -44,7 +44,7 @@ def parse_arguments():
     parser.add_argument(
         "model_version",
         help="Suffix number to use for experiment name.",
-        type=int
+        type=str
     )
     parser.add_argument(
         "eval_metric",
