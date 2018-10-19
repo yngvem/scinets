@@ -242,13 +242,13 @@ class NetworkTester:
             idxes = data_group.create_dataset('idxes', dtype=np.int32,
                                               shape=[batch_size], maxshape=[None])
             images = data_group.create_dataset('images', dtype=np.float32,
-                                              shape=dataset.shape,
+                                              shape=dataset.data_shape,
                                               maxshape=[None, *dataset.shape[1:]])
             prediction = data_group.create_dataset('prediction', dtype=np.float32,
-                                                   shape=dataset.shape,
+                                                   shape=dataset.target_shape,
                                                    maxshape=[None, *dataset.shape[1:]])
             masks = data_group.create_dataset('masks', dtype=np.float32,
-                                              shape=dataset.shape,
+                                              shape=dataset.target_shape,
                                               maxshape=[None, *dataset.shape[1:]])
             for i in range(num_its):
                 curr_prediction, curr_idxes, curr_images, curr_masks = sess.run(
