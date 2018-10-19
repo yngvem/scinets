@@ -56,9 +56,14 @@ def parse_arguments():
         help="The name of the h5 file that the outputs are saved to",
         type=str
     )
+    parser.add_argument(
+        "--stepnum",
+        help="The training step to use",
+        type=int
+    )
 
     args = parser.parse_args()
-    return Path(args.experiment), args.model_version, args.eval_metric, args.output_file
+    return Path(args.experiment), args.model_version, args.eval_metric, args.output_file, args.stepnum
 
 
 class SmartFormatter(argparse.HelpFormatter):
@@ -69,7 +74,7 @@ class SmartFormatter(argparse.HelpFormatter):
 
 
 if __name__ == '__main__':
-    data_path, model_version, eval_metric, output_file = parse_arguments()
+    data_path, model_version, eval_metric, output_file, stepnum = parse_arguments()
 
     dataset_params = load_json(data_path/'dataset_params.json')
     model_params = load_json(data_path/'model_params.json')
@@ -89,23 +94,26 @@ if __name__ == '__main__':
         log_params=log_params,
     )
 
-    if not hasattr(experiment.evaluator, eval_metric):
-        raise ValueError('The final evaluation metric must be a '
-                            'parameter of the network evaluator.')
-    best_it, result, result_std = experiment.find_best_model('val',
-                                                                eval_metric)
-    print(f'{" Final score ":=^80s}')
-    print(f' Achieved a {eval_metric:s} of {result:.3f}, with a standard '
-            f'deviation of {result_std:.3f}')
-    print(f' This result was achieved at iteration {best_it}')
-    print(80*"=")
+    if stepnum is None:
+        if not hasattr(experiment.evaluator, eval_metric):
+            raise ValueError('The final evaluation metric must be a '
+                                'parameter of the network evaluator.')
+        best_it, result, result_std = experiment.find_best_model('val',
+                                                                    eval_metric)
+        print(f'{" Final score ":=^80s}')
+        print(f' Achieved a {eval_metric:s} of {result:.3f}, with a standard '
+                f'deviation of {result_std:.3f}')
+        print(f' This result was achieved at iteration {best_it}')
+        print(80*"=")
+        stepnum = best_it
 
-    evaluation_results = experiment.evaluate_model('val', best_it)
+    evaluation_results = experiment.evaluate_model('val', stepnum)
     print(f'{" All evaluation metrics at best iteration ":=^80s}')
-    print(f' Achieved a {eval_metric:s} of {result:.3f}, with a standard '
-            f'deviation of {result_std:.3f}')
+    for metric, (result, result_std) in evaluation_results.items():
+        print(f' Achieved a {metric:s} of {result:.3f}, with a standard '
+                f'deviation of {result_std:.3f}')
     print(80*"=")
 
     print(f'{" Saving input and output to disk ":=^80s}')
-    experiment.save_outputs('val', 'val_input_output', best_it)
+    experiment.save_outputs('val', 'val_input_output', stepnum)
     print('Outputs saved')
