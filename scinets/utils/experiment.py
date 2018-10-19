@@ -250,7 +250,7 @@ class NetworkExperiment:
         _performance = [(it, *performance[metric]) 
                             for it, performance in performances.items()]
         best_it = sorted(_performance, key=itemgetter(1))
-        return best_it[0]
+        return best_it[-1]
 
     def find_best_model(self, dataset_type, performance_metric):
         """Returns the iteration number and performance of the best model
