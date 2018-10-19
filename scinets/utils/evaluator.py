@@ -240,16 +240,16 @@ class NetworkTester:
         with h5py.File(filename, 'a') as h5:
             data_group = h5.create_group(dataset_type)
             idxes = data_group.create_dataset('idxes', dtype=np.int32,
-                                              shape=[batch_size], maxsize=[None])
+                                              shape=[batch_size], maxshape=[None])
             images = data_group.create_dataset('images', dtype=np.float32,
                                               shape=dataset.shape,
-                                              maxsize=[None, *dataset.shape[1:]])
+                                              maxshape=[None, *dataset.shape[1:]])
             prediction = data_group.create_dataset('prediction', dtype=np.float32,
                                                    shape=dataset.shape,
-                                                   maxsize=[None, *dataset.shape[1:]])
+                                                   maxshape=[None, *dataset.shape[1:]])
             masks = data_group.create_dataset('masks', dtype=np.float32,
                                               shape=dataset.shape,
-                                              maxsize=[None, *dataset.shape[1:]])
+                                              maxshape=[None, *dataset.shape[1:]])
             for i in range(num_its):
                 curr_prediction, curr_idxes, curr_images, curr_masks = sess.run(
                         run_ops, feed_dict=feed_dict
