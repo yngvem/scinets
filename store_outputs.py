@@ -52,7 +52,7 @@ def parse_arguments():
         type=str
     )
     parser.add_argument(
-        "output_file",
+        "--storefile",
         help="The name of the h5 file that the outputs are saved to",
         type=str
     )
@@ -61,9 +61,14 @@ def parse_arguments():
         help="The training step to use",
         type=int
     )
+    parser.add_argument(
+        "--skip_summary",
+        help="If true, the performance summary is not computed",
+        type=bool
+    )
 
     args = parser.parse_args()
-    return Path(args.experiment), args.model_version, args.eval_metric, args.output_file, args.stepnum
+    return Path(args.experiment), args.model_version, args.eval_metric, args.storefile, args.stepnum, args.skip_summary
 
 
 class SmartFormatter(argparse.HelpFormatter):
@@ -74,7 +79,7 @@ class SmartFormatter(argparse.HelpFormatter):
 
 
 if __name__ == '__main__':
-    data_path, model_version, eval_metric, output_file, stepnum = parse_arguments()
+    data_path, model_version, eval_metric, storefile, stepnum, skip_summary = parse_arguments()
 
     dataset_params = load_json(data_path/'dataset_params.json')
     model_params = load_json(data_path/'model_params.json')
@@ -107,13 +112,15 @@ if __name__ == '__main__':
         print(80*"=")
         stepnum = best_it
 
-    evaluation_results = experiment.evaluate_model('val', stepnum)
-    print(f'{" All evaluation metrics at best iteration ":=^80s}')
-    for metric, (result, result_std) in evaluation_results.items():
-        print(f' Achieved a {metric:s} of {result:.3f}, with a standard '
-                f'deviation of {result_std:.3f}')
-    print(80*"=")
+    if not skip_summary:
+        evaluation_results = experiment.evaluate_model('val', stepnum)
+        print(f'{" All evaluation metrics at best iteration ":=^80s}')
+        for metric, (result, result_std) in evaluation_results.items():
+            print(f' Achieved a {metric:s} of {result:.3f}, with a standard '
+                    f'deviation of {result_std:.3f}')
+        print(80*"=")
 
-    print(f'{" Saving input and output to disk ":=^80s}')
-    experiment.save_outputs('val', 'val_input_output', stepnum)
-    print('Outputs saved')
+    if storefile is not None:
+        print(f'{" Saving input and output to disk ":=^80s}')
+        experiment.save_outputs('val', 'val_input_output', stepnum)
+        print('Outputs saved')
