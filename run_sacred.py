@@ -121,4 +121,11 @@ if __name__ == '__main__':
                   f'deviation of {result_std:.3f}')
             print(f' This result was achieved at iteration {best_it}')
             print(80*"=")
+
+            evaluation_results = experiment.evaluate_model('val', stepnum)
+            print(f'{" All evaluation metrics at best iteration ":=^80s}')
+            for metric, (result, result_std) in evaluation_results.items():
+                print(f' Achieved a {metric:s} of {result:.3f}, with a standard '
+                        f'deviation of {result_std:.3f}')
+            print(80*"=")
     ex.run()
