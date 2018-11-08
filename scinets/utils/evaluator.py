@@ -145,12 +145,19 @@ class NetworkTester:
         self.dataset, self.evaluator = dataset, evaluator
         self.is_training, self.is_testing = is_training, is_testing
 
-    def get_numits(self, dataset):
+    def get_dataset_length(self, dataset_type):
         dataset = f'{dataset}_data_reader'
         dataset = getattr(self.dataset, dataset)
-        data_len = len(dataset)
-        batch_size = dataset.batch_size
+        return len(dataset)
 
+    def get_batch_size(self, dataset_type):
+        dataset = f'{dataset}_data_reader'
+        dataset = getattr(self.dataset, dataset)
+        return dataset.batch_size
+
+    def get_numits(self, dataset_type):
+        data_len = self.get_dataset_length(dataset_type)
+        batch_size = self.get_dataset_length(dataset_type)
         return int(np.ceil(data_len/batch_size))
     
     def get_feed_dict(self, dataset):
@@ -220,51 +227,83 @@ class NetworkTester:
 
         return self._create_performance_dict(performances)
     
-    def save_outputs(self, dataset_type, filename, sess, save_probabilities=False):
-        """Save all outputs from the network as a h5 file.
+
+    def _init_output_file(self, dataset_type, filename):
+        """Initiate a dataset output file.
         """
+        data_len = self.get_dataset_length(dataset_type)
+        hdf_datareader = getattr(self.dataset, f'{dataset_type}_data_reader')
+
+        with h5py.File(filename, 'a') as h5:
+            data_group = h5.create_group(dataset_type)
+            data_group.create_dataset(
+                'idxes',
+                dtype=np.int32,
+                shape=[data_len]
+            )
+            data_group.create_dataset(
+                'images',
+                dtype=np.float32,
+                shape=(data_len, *dataset.data_shape)
+            )
+            data_group.create_dataset(
+                'prediction',
+                dtype=np.float32,
+                shape=(data_len, *dataset.target_shape)
+            )
+            data_group.create_dataset(
+                'masks',
+                dtype=np.float32,
+                shape=(data_len, *dataset.target_shape)
+            )
+
+    def _update_outputs(outputs, it_num, h5, dataset_type):
+        """Save the latest batch output to the h5file at the correct location.
+        """
+        batch_size = self.get_batch_size(dataset_type)
+        prev_length = it_num*batch_size
+        new_length = (it_num+1)*batch_size
+
+        # Update new length if dataset is fully iterated through
+        if new_length > data_len:
+            extra_evals = new_length - data_length
+            new_length = data_len
+
+            output['idxes'] = output['idxes'][:-extra_evals]
+            output['images'] = output['images'][:-extra_evals]
+            output['prediction'] = output['prediction'][:-extra_evals]
+            output['masks'] = output['masks'][:-extra_evals]
+            
+        # Insert new evaluations
+        group = h5[f'{dataset_type}']
+        group['idxes'][prev_length:new_length] = output['idxes']
+        group['images'][prev_length:new_length] = output['images']
+        group['prediction'][prev_length:new_length] = output['prediction']
+        group['masks'][prev_length:new_length] = output['masks']
+
+    def save_outputs(self, dataset_type, filename, sess, save_probabilities=False):
         feed_dict = self.get_feed_dict(dataset_type)
         num_its = self.get_numits(dataset_type)
+        data_len = self.get_dataset_length(dataset_type)
+        batch_size = self.get_batch_size(dataset_type)
 
         prediction_op = self.evaluator.prediction
         if save_probabilities:
             prediction_op = self.evaluator.probabilities
 
-        run_ops = (prediction_op, self.dataset.idxes, self.dataset.data,
-                   self.dataset.target)
+        run_ops = {
+            'prediction': prediction_op,
+            'idxes': self.dataset.idxes,
+            'data': self.dataset.data,
+            'target': self.dataset.target
+        }
 
-        dataset = getattr(self.dataset, f'{dataset_type}_data_reader')
-        data_len = len(dataset)
-        batch_size = dataset.batch_size
-        
+        self._init_output_file(dataset_type=dataset_type, filename=filename)
         with h5py.File(filename, 'a') as h5:
-            data_group = h5.create_group(dataset_type)
-            idxes = data_group.create_dataset('idxes', dtype=np.int32,
-                                              shape=[batch_size], maxshape=[None])
-            images = data_group.create_dataset('images', dtype=np.float32,
-                                              shape=(1, *dataset.data_shape),
-                                              maxshape=[None, *dataset.data_shape])
-            prediction = data_group.create_dataset('prediction', dtype=np.float32,
-                                                   shape=(1, *dataset.target_shape),
-                                                   maxshape=[None, *dataset.target_shape])
-            masks = data_group.create_dataset('masks', dtype=np.float32,
-                                              shape=(1, *dataset.target_shape),
-                                              maxshape=[None, *dataset.target_shape])
-            for i in range(num_its):
-                curr_prediction, curr_idxes, curr_images, curr_masks = sess.run(
-                        run_ops, feed_dict=feed_dict
-                )
-                 
-                from pdb import set_trace; set_trace()
-                idxes.resize(((i+1)*batch_size,))
-                images.resize(((i+1)*batch_size, *dataset.data_shape))
-                prediction.resize(((i+1)*batch_size, *dataset.target_shape))
-                masks.resize(((i+1)*batch_size, *dataset.target_shape))
-
-                idxes[i*batch_size:(i+1)*batch_size] = curr_idxes
-                images[i*batch_size:(i+1)*batch_size] = curr_images
-                prediction[i*batch_size:(i+1)*batch_size] = curr_prediction
-                masks[i*batch_size:(i+1)*batch_size] = curr_masks
+            for it in range(num_its):
+                outputs = sess.run(run_ops, feed_dict=feed_dict)
+                self._update_outputs(outputs, it_num=it, h5=h5, 
+                                     dataset_type=dataset_type)
 
             
 if __name__ == '__main__':
