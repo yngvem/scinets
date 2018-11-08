@@ -146,12 +146,12 @@ class NetworkTester:
         self.is_training, self.is_testing = is_training, is_testing
 
     def get_dataset_length(self, dataset_type):
-        dataset = f'{dataset}_data_reader'
+        dataset = f'{dataset_type}_data_reader'
         dataset = getattr(self.dataset, dataset)
         return len(dataset)
 
     def get_batch_size(self, dataset_type):
-        dataset = f'{dataset}_data_reader'
+        dataset = f'{dataset_type}_data_reader'
         dataset = getattr(self.dataset, dataset)
         return dataset.batch_size
 
