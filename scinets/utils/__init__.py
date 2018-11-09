@@ -7,5 +7,5 @@ from .evaluator import (
     BinaryClassificationEvaluator,
     NetworkTester,
 )
-from .logger import TensorboardLogger, SacredLogger
+from .logger import TensorboardLogger, SacredLogger, HDF5Logger
 from .experiment import NetworkExperiment, SacredExperiment, MNISTExperiment

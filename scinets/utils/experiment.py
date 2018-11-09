@@ -5,7 +5,7 @@ from pathlib import Path
 from tqdm import trange
 from ..model import model
 from ..trainer import NetworkTrainer
-from ..utils import TensorboardLogger, SacredLogger
+from ..utils import TensorboardLogger, SacredLogger, HDF5Logger
 from ..utils import evaluator
 from ..data import HDFDataset, MNISTDataset
 
@@ -77,12 +77,13 @@ class NetworkExperiment:
                     'train_collection': None,       (optional)
                     'val_collection': None          (optional)
                 },
-            'sacredboard_params':
+            'h5_params':                            (optional)
                 {
                     'log_dict': None,
                     'train_log_dict': None,         (optional)
                     'val_log_dict': None,           (optional)
-                }
+                    'filename': None                (optional)
+                },
         }
 
         trainer_params = {
@@ -106,6 +107,10 @@ class NetworkExperiment:
         self.evaluator = self._get_evaluator(log_params["evaluator"])
         self.tb_logger = self._get_tensorboard_logger(log_params["tb_params"])
         self.network_tester = self._get_network_tester(log_params["network_tester"])
+
+        if "h5_params" not in log_params:
+            log_params["h5_params"] = {"log_dicts": {}}
+        self.h5_logger = self._get_h5_logger(log_params["h5_params"])
 
     def _get_continue_old(self, experiment_params):
         """Extract whether an old experiment should be continued.
@@ -175,6 +180,9 @@ class NetworkExperiment:
             **tensorboard_params,
         )
 
+    def _get_h5_logger(self, h5_params):
+        return HDF5Logger(self.evaluator, log_dir=self.log_dir, **h5_params)
+
     def _get_network_tester(self, network_tester_params):
         return evaluator.NetworkTester(
             evaluator=self.evaluator,
@@ -195,21 +203,45 @@ class NetworkExperiment:
             self.trainer.load_state(sess, step_num=step_num)
         self.tb_logger.init_file_writers(sess)
 
+    def _train_steps(self, sess):
+        """Perform `self.val_interval` train steps.
+        """
+        train_ops = [self.tb_logger.train_summary_op, self.h5_logger.train_summary_op]
+
+        summaries, it_nums = self.trainer.train(
+            session=sess, num_steps=self.val_interval, additional_ops=train_ops
+        )
+
+        summaries_dict = {}
+        summaries_dict["tb_summaries"] = [s[0] for s in summaries]
+        summaries_dict["h5_summaries"] = [s[1] for s in summaries]
+        return summaries_dict, it_nums
+
+    def _val_logs(self, sess):
+        val_ops = [self.tb_logger.train_summary_op, self.h5_logger.train_summary_op]
+
+        tb_summary, h5_summary = sess.run(
+            val_ops, feed_dict={self.model.is_training: False}
+        )
+
+        summary_dict = {}
+        summary_dict["tb_summary"] = tb_summary
+        summary_dict["h5_summary"] = h5_summary
+
+        return summary_dict
+
     def _train_its(self, sess):
         """Perform `self.val_interval` train steps and log validation metrics.
         """
-        train_summaries, it_num = self.trainer.train(
-            session=sess,
-            num_steps=self.val_interval,
-            additional_ops=[self.tb_logger.train_summary_op, self.model.loss],
-        )
-        train_summaries = [s[0] for s in train_summaries]
-        self.tb_logger.log_multiple(train_summaries, it_num)
+        summaries, it_nums = self._train_steps(sess)
+        self.tb_logger.log_multiple(summaries["tb_summaries"], it_num)
+        self.h5_logger.log_multiple(summaries["h5_summaries"], it_num)
 
         val_summaries = sess.run(
-            self.tb_logger.val_summary_op, feed_dict={self.model.is_training: False}
+            val_summaries, feed_dict={self.model.is_training: False}
         )
-        self.tb_logger.log(val_summaries, it_num[-1], log_type="val")
+        self.tb_logger.log(val_summaries["tb_summary"], it_num[-1], log_type="val")
+        self.h5_logger.log(val_summaries["h5_summary"], it_num[-1], log_type="val")
 
     def train(self, num_steps):
         """Train the specified model for the given number of steps.
@@ -379,11 +411,16 @@ class SacredExperiment(NetworkExperiment):
         self.sacred_logger = self._get_sacred_logger(log_params["sacred_params"])
         self.network_tester = self._get_network_tester(log_params["network_tester"])
 
+        if "h5_params" not in log_params:
+            log_params["h5_params"] = {"log_dicts": {}}
+        self.h5_logger = self._get_h5_logger(log_params["h5_params"])
+
     def _train_steps(self, sess):
         """Perform `self.val_interval` train steps.
         """
         train_ops = [
             self.tb_logger.train_summary_op,
+            self.h5_logger.train_summary_op,
             self.sacred_logger.train_summary_op,
         ]
 
@@ -391,35 +428,50 @@ class SacredExperiment(NetworkExperiment):
             session=sess, num_steps=self.val_interval, additional_ops=train_ops
         )
 
-        tb_summaries = [s[0] for s in summaries]
-        sacred_summaries = [s[1] for s in summaries]
-        return tb_summaries, sacred_summaries, it_nums
+        summaries_dict = {}
+        summaries_dict["tb_summaries"] = [s[0] for s in summaries]
+        summaries_dict["h5_summaries"] = [s[1] for s in summaries]
+        summaries_dict["sacred_summaries"] = [s[2] for s in summaries]
+        return summaries_dict, it_nums
 
     def _val_logs(self, sess):
         """Create validation logs.
         """
-        val_ops = [self.tb_logger.train_summary_op, self.sacred_logger.train_summary_op]
+        val_ops = [
+            self.tb_logger.train_summary_op,
+            self.h5_logger.train_summary_op,
+            self.sacred_logger.train_summary_op,
+        ]
 
-        tb_summaries, sacred_summaries = sess.run(
+        tb_summary, h5_summary, sacred_summary = sess.run(
             val_ops, feed_dict={self.model.is_training: False}
         )
 
-        return tb_summaries, sacred_summaries
+        summary_dict = {}
+        summary_dict["tb_summary"] = tb_summary
+        summary_dict["h5_summary"] = h5_summary
+        summary_dict["sacred_summary"] = sacred_summary
+
+        return summary_dict
 
     def _train_its(self, sess):
         """Perform `self.val_interval` train steps and log validation metrics.
         """
-
-        tb_summaries, sacred_summaries, it_nums = self._train_steps(sess)
-        self.tb_logger.log_multiple(tb_summaries, it_nums)
+        summaries, it_nums = self._train_steps(sess)
+        self.tb_logger.log_multiple(summaries["tb_summaries"], it_nums)
+        self.h5_logger.log_multiple(summaries["h5_summaries"], it_nums)
         self.sacred_logger.log_multiple(
-            sacred_summaries, it_nums=it_nums, _run=self._run
+            summaries["sacred_summaries"], it_nums=it_nums, _run=self._run
         )
 
-        val_tb_summaries, val_sacred_summaries = self._val_logs(sess)
-        self.tb_logger.log(val_tb_summaries, it_nums[-1], log_type="val")
+        summaries = self._val_logs(sess)
+        self.tb_logger.log(summaries["tb_summary"], it_nums[-1], log_type="val")
+        self.h5_logger.log(summaries["h5_summary"], it_nums[-1], log_type="val")
         self.sacred_logger.log(
-            val_sacred_summaries, it_num=it_nums[-1], log_type="val", _run=self._run
+            summaries["sacred_summary"],
+            it_num=it_nums[-1],
+            log_type="val",
+            _run=self._run,
         )
 
     def _get_sacred_logger(self, sacred_dict):
