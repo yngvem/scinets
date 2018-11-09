@@ -145,19 +145,14 @@ class NetworkTester:
         self.dataset, self.evaluator = dataset, evaluator
         self.is_training, self.is_testing = is_training, is_testing
 
-    def get_dataset_length(self, dataset_type):
+    def get_dataset(self, dataset_type):
         dataset = f'{dataset_type}_data_reader'
-        dataset = getattr(self.dataset, dataset)
-        return len(dataset)
-
-    def get_batch_size(self, dataset_type):
-        dataset = f'{dataset_type}_data_reader'
-        dataset = getattr(self.dataset, dataset)
-        return dataset.batch_size
+        return getattr(self.dataset, dataset)
 
     def get_numits(self, dataset_type):
-        data_len = self.get_dataset_length(dataset_type)
-        batch_size = self.get_dataset_length(dataset_type)
+        dataset = self.get_dataset(dataset_type)
+        data_len = len(dataset)
+        batch_size = datset.batch_size
         return int(np.ceil(data_len/batch_size))
     
     def get_feed_dict(self, dataset):
@@ -231,7 +226,8 @@ class NetworkTester:
     def _init_output_file(self, dataset_type, filename):
         """Initiate a dataset output file.
         """
-        data_len = self.get_dataset_length(dataset_type)
+        dataset = self.get_dataset(datset_type)
+        data_len = len(dataset)
         hdf_datareader = getattr(self.dataset, f'{dataset_type}_data_reader')
 
         with h5py.File(filename, 'a') as h5:
@@ -260,7 +256,8 @@ class NetworkTester:
     def _update_outputs(outputs, it_num, h5, dataset_type):
         """Save the latest batch output to the h5file at the correct location.
         """
-        batch_size = self.get_batch_size(dataset_type)
+        dataset = self.get_dataset(dataset_type)
+        batch_size = dataset.batch_size
         prev_length = it_num*batch_size
         new_length = (it_num+1)*batch_size
 
@@ -282,10 +279,11 @@ class NetworkTester:
         group['masks'][prev_length:new_length] = output['masks']
 
     def save_outputs(self, dataset_type, filename, sess, save_probabilities=False):
-        feed_dict = self.get_feed_dict(dataset_type)
+        dataset = self.get_dataset(dataset_type)
+        data_len = len(dataset)
+        batch_size = dataset.batch_size
         num_its = self.get_numits(dataset_type)
-        data_len = self.get_dataset_length(dataset_type)
-        batch_size = self.get_batch_size(dataset_type)
+        feed_dict = self.get_feed_dict(dataset_type)
 
         prediction_op = self.evaluator.prediction
         if save_probabilities:
