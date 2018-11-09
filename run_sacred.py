@@ -117,7 +117,7 @@ if __name__ == "__main__":
                 )
         experiment.train(num_steps)
         if eval_metric is not None:
-            best_it, (result, result_std) = experiment.find_best_model(
+            best_it, result, result_std = experiment.find_best_model(
                 "val", eval_metric
             )
             print(f'{" Final score ":=^80s}')
@@ -128,7 +128,7 @@ if __name__ == "__main__":
             print(f" This result was achieved at iteration {best_it}")
             print(80 * "=")
 
-            evaluation_results = experiment.evaluate_model("val", stepnum)
+            evaluation_results = experiment.evaluate_model("val", best_it)
             print(f'{" All evaluation metrics at best iteration ":=^80s}')
             for metric, (result, result_std) in evaluation_results.items():
                 print(
@@ -136,5 +136,7 @@ if __name__ == "__main__":
                     f"deviation of {result_std:.3f}"
                 )
             print(80 * "=")
+
+            return result
 
     ex.run()
