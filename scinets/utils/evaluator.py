@@ -147,7 +147,7 @@ class NetworkTester:
     def get_numits(self, dataset_type):
         dataset = self.get_dataset(dataset_type)
         data_len = len(dataset)
-        batch_size = datset.batch_size
+        batch_size = dataset.batch_size
         return int(np.ceil(data_len / batch_size))
 
     def get_feed_dict(self, dataset):
@@ -218,7 +218,7 @@ class NetworkTester:
     def _init_output_file(self, dataset_type, filename):
         """Initiate a dataset output file.
         """
-        dataset = self.get_dataset(datset_type)
+        dataset = self.get_dataset(dataset_type)
         data_len = len(dataset)
         hdf_datareader = getattr(self.dataset, f"{dataset_type}_data_reader")
 
@@ -235,30 +235,31 @@ class NetworkTester:
                 "masks", dtype=np.float32, shape=(data_len, *dataset.target_shape)
             )
 
-    def _update_outputs(outputs, it_num, h5, dataset_type):
+    def _update_outputs(self, outputs, it_num, h5, dataset_type):
         """Save the latest batch output to the h5file at the correct location.
         """
         dataset = self.get_dataset(dataset_type)
+        data_len = len(dataset)
         batch_size = dataset.batch_size
         prev_length = it_num * batch_size
         new_length = (it_num + 1) * batch_size
 
         # Update new length if dataset is fully iterated through
         if new_length > data_len:
-            extra_evals = new_length - data_length
+            extra_evals = new_length - data_len
             new_length = data_len
 
-            output["idxes"] = output["idxes"][:-extra_evals]
-            output["images"] = output["images"][:-extra_evals]
-            output["prediction"] = output["prediction"][:-extra_evals]
-            output["masks"] = output["masks"][:-extra_evals]
+            outputs["idxes"] = outputs["idxes"][:-extra_evals]
+            outputs["images"] = outputs["images"][:-extra_evals]
+            outputs["prediction"] = outputs["prediction"][:-extra_evals]
+            outputs["masks"] = outputs["masks"][:-extra_evals]
 
         # Insert new evaluations
         group = h5[f"{dataset_type}"]
-        group["idxes"][prev_length:new_length] = output["idxes"]
-        group["images"][prev_length:new_length] = output["images"]
-        group["prediction"][prev_length:new_length] = output["prediction"]
-        group["masks"][prev_length:new_length] = output["masks"]
+        group["idxes"][prev_length:new_length] = outputs["idxes"]
+        group["images"][prev_length:new_length] = outputs["images"]
+        group["prediction"][prev_length:new_length] = outputs["prediction"]
+        group["masks"][prev_length:new_length] = outputs["masks"]
 
     def save_outputs(self, dataset_type, filename, sess, save_probabilities=False):
         dataset = self.get_dataset(dataset_type)
@@ -274,8 +275,8 @@ class NetworkTester:
         run_ops = {
             "prediction": prediction_op,
             "idxes": self.dataset.idxes,
-            "data": self.dataset.data,
-            "target": self.dataset.target,
+            "images": self.dataset.data,
+            "masks": self.dataset.target,
         }
 
         self._init_output_file(dataset_type=dataset_type, filename=filename)
@@ -289,3 +290,4 @@ class NetworkTester:
 
 if __name__ == "__main__":
     pass
+
