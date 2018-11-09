@@ -129,5 +129,5 @@ if __name__ == "__main__":
 
     if storefile is not None:
         print(f'{" Saving input and output to disk ":=^80s}')
-        experiment.save_outputs("val", "val_input_output", stepnum)
+        experiment.save_outputs("val", storefile, stepnum)
         print("Outputs saved")

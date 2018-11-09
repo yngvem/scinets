@@ -270,7 +270,7 @@ class NetworkExperiment:
         return best_it, performance, std
 
     def save_outputs(self, dataset_type, filename, step_num):
-        filename = self.log_dir / f"{filename}_{step_num}"
+        filename = self.log_dir / self.name / f"{filename}_{step_num}.h5"
         with tf.Session() as sess:
             self._init_session(sess, continue_old=True, step_num=step_num)
             self.network_tester.save_outputs(dataset_type, filename, sess)
