@@ -26,40 +26,34 @@ def load_yaml(path):
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(
-        formatter_class=SmartFormatter
-    )
+    parser = argparse.ArgumentParser(formatter_class=SmartFormatter)
     parser.add_argument(
         "database_credentials",
         help="Path YAML file with database credentials.",
-        type=str
+        type=str,
     )
     parser.add_argument(
         "experiment",
         help="R|Path to folder with the JSON files specifying the parameters \n"
-             "used in the experiment. The folder should contain the \n"
-             "following files\n"
-             "   - 'experiment_params.json'\n"
-             "   - 'dataset_params.json'\n"
-             "   - 'model_params.json'\n"
-             "   - 'trainer_params.json'\n"
-             "   - 'log_params.json'",
-        type=str
+        "used in the experiment. The folder should contain the \n"
+        "following files\n"
+        "   - 'experiment_params.json'\n"
+        "   - 'dataset_params.json'\n"
+        "   - 'model_params.json'\n"
+        "   - 'trainer_params.json'\n"
+        "   - 'log_params.json'",
+        type=str,
     )
     parser.add_argument(
-        "num_steps",
-        help="Number of training steps to perform.",
-        type=int
+        "num_steps", help="Number of training steps to perform.", type=int
     )
     parser.add_argument(
         "--eval",
         help="The evaluation metric to use when finding the best architecture.",
-        type=str
+        type=str,
     )
     parser.add_argument(
-        "--name",
-        help="The name of the experiment used for logging.",
-        type=str
+        "--name", help="The name of the experiment used for logging.", type=str
     )
 
     args = parser.parse_args()
@@ -69,7 +63,7 @@ def parse_arguments():
 
 class SmartFormatter(argparse.HelpFormatter):
     def _split_lines(self, text, width):
-        if text.startswith('R|'):
+        if text.startswith("R|"):
             return text[2:].splitlines()
         return super()._split_lines(text, width)
 
@@ -80,26 +74,33 @@ def create_experiment(name, db_params):
     return ex
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     db_params, data_path, num_steps, name, eval_metric = parse_arguments()
     if name is None:
-        name = load_json(data_path/'experiment_params.json')['name']
+        name = load_json(data_path / "experiment_params.json")["name"]
 
     ex = create_experiment(name, db_params)
 
     @ex.config
     def cfg():
-        dataset_params = load_json(data_path/'dataset_params.json')
-        model_params = load_json(data_path/'model_params.json')
-        trainer_params = load_json(data_path/'trainer_params.json')
-        log_params = load_json(data_path/'log_params.json')
-        experiment_params = load_json(data_path/'experiment_params.json')
-        experiment_params['name'] = name
+        dataset_params = load_json(data_path / "dataset_params.json")
+        model_params = load_json(data_path / "model_params.json")
+        trainer_params = load_json(data_path / "trainer_params.json")
+        log_params = load_json(data_path / "log_params.json")
+        experiment_params = load_json(data_path / "experiment_params.json")
+        experiment_params["name"] = name
 
     @ex.main
-    def sacred_main(_run, experiment_params, model_params, dataset_params,
-             trainer_params, log_params):
+    def sacred_main(
+        _run,
+        experiment_params,
+        model_params,
+        dataset_params,
+        trainer_params,
+        log_params,
+    ):
         from scinets.utils.experiment import SacredExperiment
+
         experiment = SacredExperiment(
             _run=_run,
             experiment_params=experiment_params,
@@ -110,22 +111,30 @@ if __name__ == '__main__':
         )
         if eval_metric is not None:
             if not hasattr(experiment.evaluator, eval_metric):
-                raise ValueError('The final evaluation metric must be a '
-                                 'parameter of the network evaluator.')
+                raise ValueError(
+                    "The final evaluation metric must be a "
+                    "parameter of the network evaluator."
+                )
         experiment.train(num_steps)
         if eval_metric is not None:
-            best_it, (result, result_std) = experiment.find_best_model('val',
-                                                                       eval_metric)
+            best_it, (result, result_std) = experiment.find_best_model(
+                "val", eval_metric
+            )
             print(f'{" Final score ":=^80s}')
-            print(f' Achieved a {eval_metric:s} of {result:.3f}, with a standard '
-                  f'deviation of {result_std:.3f}')
-            print(f' This result was achieved at iteration {best_it}')
-            print(80*"=")
+            print(
+                f" Achieved a {eval_metric:s} of {result:.3f}, with a standard "
+                f"deviation of {result_std:.3f}"
+            )
+            print(f" This result was achieved at iteration {best_it}")
+            print(80 * "=")
 
-            evaluation_results = experiment.evaluate_model('val', stepnum)
+            evaluation_results = experiment.evaluate_model("val", stepnum)
             print(f'{" All evaluation metrics at best iteration ":=^80s}')
             for metric, (result, result_std) in evaluation_results.items():
-                print(f' Achieved a {metric:s} of {result:.3f}, with a standard '
-                        f'deviation of {result_std:.3f}')
-            print(80*"=")
+                print(
+                    f" Achieved a {metric:s} of {result:.3f}, with a standard "
+                    f"deviation of {result_std:.3f}"
+                )
+            print(80 * "=")
+
     ex.run()

@@ -10,9 +10,18 @@ import json
 class NetworkTrainer:
     """Class used to train a network instance.
     """
-    def __init__(self, network, epoch_size, log_dir='./logs', 
-                 train_op=None, learning_rate_op=None, 
-                 max_checkpoints=10, save_step=2000, verbose=True):
+
+    def __init__(
+        self,
+        network,
+        epoch_size,
+        log_dir="./logs",
+        train_op=None,
+        learning_rate_op=None,
+        max_checkpoints=10,
+        save_step=2000,
+        verbose=True,
+    ):
         """Trainer class for neural networks.
 
         Parameters
@@ -53,10 +62,10 @@ class NetworkTrainer:
 
         self.train_op = train_op
 
-        self.log_dir = Path(log_dir)/network.name/'checkpoints'
+        self.log_dir = Path(log_dir) / network.name / "checkpoints"
         self.verbose = verbose
 
-        with tf.variable_scope('trainer'):
+        with tf.variable_scope("trainer"):
             self.init_global_step()
             self.learning_rate = self.get_learning_rate(learning_rate_op)
             self._optimizer, self._train_step = self.init_train_op()
@@ -83,7 +92,7 @@ class NetworkTrainer:
         """
         additional_ops = [] if additional_ops is None else additional_ops
 
-        output = [None]*num_steps
+        output = [None] * num_steps
         iterations = np.arange(self.num_steps, self.num_steps + num_steps + 1)
         for i in range(num_steps):
             output[i], _ = self.train_step(session, additional_ops=additional_ops)
@@ -109,12 +118,9 @@ class NetworkTrainer:
         """
         additional_ops = [] if additional_ops is None else additional_ops
         run_list = [self._train_step] + additional_ops
-        
+
         feed_dict = {} if feed_dict is None else feed_dict
-        feed_dict = {
-            self.network.is_training: True,
-            **feed_dict
-        }
+        feed_dict = {self.network.is_training: True, **feed_dict}
 
         output = session.run(run_list, feed_dict=feed_dict)[1:]
         self.num_steps += 1
@@ -128,23 +134,22 @@ class NetworkTrainer:
         """
         if not self.log_dir.is_dir():
             self.log_dir.mkdir(parents=True)
-        file_name = str(self.log_dir/'checkpoint')
-        self._checkpoint_saver.save(session, file_name,
-                         global_step=self.num_steps)
+        file_name = str(self.log_dir / "checkpoint")
+        self._checkpoint_saver.save(session, file_name, global_step=self.num_steps)
 
     def load_state(self, session, step_num=None):
         """Load specified checkpoint, latest is used if `step_num` isn't given.
         """
-        if step_num==None:
-            with (self.log_dir/'latest_step.json') as f:
+        if step_num == None:
+            with (self.log_dir / "latest_step.json") as f:
                 step_num = json.load(f)
         if self.verbose:
-            print('Loading model checkpoint {}'.format(step_num))
-        log_file = str(self.log_dir/'checkpoint-{}'.format(step_num))
+            print("Loading model checkpoint {}".format(step_num))
+        log_file = str(self.log_dir / "checkpoint-{}".format(step_num))
         self._checkpoint_saver.restore(session, log_file)
         self.num_steps = step_num
         if self.verbose:
-            print('Model loaded')
+            print("Model loaded")
 
     def init_saver(self, max_checkpoints):
         """Create an operator for saving and loading model state.
@@ -157,7 +162,7 @@ class NetworkTrainer:
         The global step variable counts the number of training steps
         performed and is automatically updated each iteration.
         """
-        self.global_step = tf.Variable(self.num_steps, name='global_step')
+        self.global_step = tf.Variable(self.num_steps, name="global_step")
         self.update_global_step = self.global_step.assign(self.global_step + 1)
         tf.add_to_collection(tf.GraphKeys.UPDATE_OPS, self.update_global_step)
 
@@ -172,10 +177,10 @@ class NetworkTrainer:
         In addition to the 'arguments' kwargs dict, the keyword argument
         `global_step=self.global_step` is supplied.
         """
-        if str(lr_op_dict) == 'None':
+        if str(lr_op_dict) == "None":
             return None
-        lr_op = getattr(lr_modifiers, lr_op_dict['operator'])
-        lr_op = lr_op(global_step=self.global_step, **lr_op_dict['arguments'])
+        lr_op = getattr(lr_modifiers, lr_op_dict["operator"])
+        lr_op = lr_op(global_step=self.global_step, **lr_op_dict["arguments"])
         return lr_op
 
     def init_train_op(self):
@@ -189,33 +194,33 @@ class NetworkTrainer:
             The train step operator, evaluating this perform one train step.
         """
         if self.network.loss is None:
-            raise RuntimeError(
-                'The network instance has no loss function.'
+            raise RuntimeError("The network instance has no loss function.")
+
+        if (
+            self.learning_rate is not None
+            and "learning_rate" in self.train_op["arguments"]
+        ):
+            raise ValueError(
+                "The learning rate cannot be set with both a "
+                "learning rate operator and in the optimizer "
+                "argument dictionary"
             )
 
-        if (self.learning_rate is not None and
-                'learning_rate' in self.train_op['arguments']):
-            raise ValueError('The learning rate cannot be set with both a '
-                             'learning rate operator and in the optimizer '
-                             'argument dictionary')
+        lr = self.train_op["arguments"].get("learning_rate", self.learning_rate)
+        self.train_op["arguments"]["learning_rate"] = lr
 
-        lr = self.train_op['arguments'].get('learning_rate', self.learning_rate)
-        self.train_op['arguments']['learning_rate'] = lr
-
-        Optimizer = getattr(optimizers, self.train_op['operator'])
-        optimizer = Optimizer(
-            **self.train_op['arguments']
-        )
+        Optimizer = getattr(optimizers, self.train_op["operator"])
+        optimizer = Optimizer(**self.train_op["arguments"])
 
         UPDATE_OPS = tf.GraphKeys.UPDATE_OPS
         with tf.control_dependencies(tf.get_collection(UPDATE_OPS)):
             train_step = optimizer.minimize(self.network.loss)
-        
+
         return optimizer, train_step
 
     @property
     def num_epochs(self):
-        return self.num_steps//self.epoch_size
+        return self.num_steps // self.epoch_size
 
     @property
     def should_save(self):

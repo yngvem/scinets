@@ -3,8 +3,8 @@ TODO: FIX loss kwargs
 """
 
 
-__author__ = 'Yngve Mardal Moe'
-__email__ = 'yngve.m.moe@gmail.com'
+__author__ = "Yngve Mardal Moe"
+__email__ = "yngve.m.moe@gmail.com"
 
 
 from copy import copy
@@ -15,9 +15,18 @@ from . import losses
 
 
 class NeuralNet:
-    def __init__(self, input_var, architecture, name=None, is_training=None,
-                 true_out=None, loss_function=None, loss_kwargs=None, 
-                 device=None, verbose=False):
+    def __init__(
+        self,
+        input_var,
+        architecture,
+        name=None,
+        is_training=None,
+        true_out=None,
+        loss_function=None,
+        loss_kwargs=None,
+        device=None,
+        verbose=False,
+    ):
         """
         Create a standard feed-forward net.
 
@@ -47,11 +56,11 @@ class NeuralNet:
             the terminal window.
         """
         # Check if placeholders are supplied
-        self.is_training = is_training if is_training is not None \
-                else tf.placeholder(tf.bool, [])
+        self.is_training = (
+            is_training if is_training is not None else tf.placeholder(tf.bool, [])
+        )
         self.true_out = true_out
 
-        
         # Set pre-assembly properties
         self.input = input_var
         self.architecture = architecture
@@ -60,7 +69,7 @@ class NeuralNet:
 
         # Assemble network
         self.out = self.input
-        self.outs = {'input': self.input}
+        self.outs = {"input": self.input}
         self.layers = []
         self.params = {}
         self.reg_lists = {}
@@ -91,18 +100,13 @@ class NeuralNet:
         loss_kwargs = loss_kwargs if loss_kwargs is not None else {}
 
         loss_function = getattr(losses, loss_function)
-        with tf.variable_scope(self.name+'/loss'):
+        with tf.variable_scope(self.name + "/loss"):
             uregularised_loss = tf.reduce_mean(
-                    loss_function(
-                        prediction=self.out,
-                        target=self.true_out,
-                        **loss_kwargs
-                    ),
-                    name='loss_function'
+                loss_function(prediction=self.out, target=self.true_out, **loss_kwargs),
+                name="loss_function",
             )
 
-            self.loss = tf.add(uregularised_loss, self.reg_op,
-                                name='regularised_Loss')
+            self.loss = tf.add(uregularised_loss, self.reg_op, name="regularised_Loss")
 
     def collect_regularizers(self):
         """Combine all the regularizer lists into one operator.
@@ -113,43 +117,54 @@ class NeuralNet:
 
         self.reg_op = 0
         if len(self.reg_list) > 0:
-            self.reg_op = tf.add_n(self.reg_list, name='regularizers')
+            self.reg_op = tf.add_n(self.reg_list, name="regularizers")
 
     def assemble_layer(self, layer_dict):
         """Assemble a single layer.
         """
-        layer_class = getattr(layers, layer_dict['layer'])
-        layer = layer_class(self.out, is_training=self.is_training,
-                            verbose=self.verbose, **layer_dict)
+        layer_class = getattr(layers, layer_dict["layer"])
+        layer = layer_class(
+            self.out, is_training=self.is_training, verbose=self.verbose, **layer_dict
+        )
 
         self.layers.append(layer)
         self.out = layer.output
 
-        self.outs[layer_dict['scope']] = self.out
-        self.reg_lists[layer_dict['scope']] = layer.reg_list
+        self.outs[layer_dict["scope"]] = self.out
+        self.reg_lists[layer_dict["scope"]] = layer.reg_list
         for pname, param in layer.params.items():
-            self.params[layer_dict['scope'] + '/' + pname] = param
+            self.params[layer_dict["scope"] + "/" + pname] = param
 
     def build_model(self):
         """Assemble the network.
         """
 
         if self.verbose:
-            print('\n'+25*'-'+'Assembling network'+25*'-')
+            print("\n" + 25 * "-" + "Assembling network" + 25 * "-")
 
         for layer in self.architecture:
             self.assemble_layer(layer)
 
         if self.verbose:
-            print(25*'-'+'Finished assembling'+25*'-'+'\n')
-            
+            print(25 * "-" + "Finished assembling" + 25 * "-" + "\n")
+
         self.collect_regularizers()
 
 
 class UNet(NeuralNet):
-    def __init__(self, input_var, architecture, skip_connections, name=None,
-                 is_training=None, true_out=None, loss_function=None,
-                 device=None, loss_kwargs=None, verbose=False):
+    def __init__(
+        self,
+        input_var,
+        architecture,
+        skip_connections,
+        name=None,
+        is_training=None,
+        true_out=None,
+        loss_function=None,
+        device=None,
+        loss_kwargs=None,
+        verbose=False,
+    ):
         self.skip_connections = skip_connections
         super().__init__(
             input_var=input_var,
@@ -160,31 +175,30 @@ class UNet(NeuralNet):
             loss_function=loss_function,
             loss_kwargs=loss_kwargs,
             device=device,
-            verbose=verbose    
+            verbose=verbose,
         )
 
     def is_skip_connection_target(self, layer):
         """Returns whether the current layer is the target of a skip connection.
         """
         for skip_connection in self.skip_connections:
-            if skip_connection[1] == layer['scope']:
+            if skip_connection[1] == layer["scope"]:
                 return True
-    
+
     def get_skip_connection(self, layer):
         """Returns the skip connection where the given layer is the target.
         """
         for i, skip_connection in enumerate(self.skip_connections):
-            if skip_connection[1] == layer['scope']:
+            if skip_connection[1] == layer["scope"]:
                 return i, skip_connection
 
     def create_skip_connection(self, curr_layer):
         """Return a the skip connection that ends in the current layer.
         """
         skip_id, skip_connection = self.get_skip_connection(curr_layer)
-        with tf.variable_scope('skip_connection_{}'.format(skip_id)) as vscope:
+        with tf.variable_scope("skip_connection_{}".format(skip_id)) as vscope:
             self.out = self._safe_concat(
-                self.outs[skip_connection[0]],
-                self.outs[skip_connection[1]],
+                self.outs[skip_connection[0]], self.outs[skip_connection[1]]
             )
             self.outs[vscope.name] = self.out
             self.reg_lists[skip_id] = []
@@ -196,16 +210,15 @@ class UNet(NeuralNet):
             second_tensor,
             size=size,
             method=tf.image.ResizeMethod.BILINEAR,
-            align_corners=True
+            align_corners=True,
         )
         return tf.concat((first_tensor, second_tensor), axis=-1)
-
 
     def build_model(self):
         """Assemble the network.
         """
         if self.verbose:
-            print('\n'+25*'-'+'Assembling network'+25*'-')
+            print("\n" + 25 * "-" + "Assembling network" + 25 * "-")
 
         for i, layer in enumerate(self.architecture):
             self.assemble_layer(layer)
@@ -213,7 +226,6 @@ class UNet(NeuralNet):
                 self.create_skip_connection(layer)
 
         if self.verbose:
-            print(25*'-'+'Finished assembling'+25*'-'+'\n')
-            
-        self.collect_regularizers()
+            print(25 * "-" + "Finished assembling" + 25 * "-" + "\n")
 
+        self.collect_regularizers()

@@ -3,8 +3,8 @@
 """
 
 
-__author__ = 'Yngve Mardal Moe'
-__email__ = 'yngve.m.moe@gmail.com'
+__author__ = "Yngve Mardal Moe"
+__email__ = "yngve.m.moe@gmail.com"
 
 
 import numpy as np
@@ -13,6 +13,7 @@ import numpy as np
 class Preprocessor:
     """Superclass for all preprocessors. Does nothing.
     """
+
     def __call__(self, images):
         """The function being applied to the input images.
         """
@@ -30,14 +31,16 @@ class PreprocessingPipeline(Preprocessor):
     The output of the first preprocessor is used as argument for the second,
     and so forth. The output of the last preprocessor is then returned.
     """
+
     def __init__(self, preprocessor_dicts):
         def get_operator(preprocessor_dict):
-            preprocessor = globals()[preprocessor_dict['operator']]
-            return preprocessor(**preprocessor_dict['arguments'])
+            preprocessor = globals()[preprocessor_dict["operator"]]
+            return preprocessor(**preprocessor_dict["arguments"])
 
-        self.preprocessors = [get_operator(preprocessor_dict)
-                                for preprocessor_dict in preprocessor_dicts]
-    
+        self.preprocessors = [
+            get_operator(preprocessor_dict) for preprocessor_dict in preprocessor_dicts
+        ]
+
     def __call__(self, images):
         for preprocessor in self.preprocessors:
             images = preprocessor(images)
@@ -58,33 +61,33 @@ class ChannelRemoverPreprocessor(Preprocessor):
         return np.delete(images, self.unwanted_channel, axis=-1)
 
     def output_channels(self, input_channels):
-        return input_channels-1
+        return input_channels - 1
 
 
 class WindowingPreprocessor(Preprocessor):
     """Used to set the dynamic range of an image.
     """
+
     def __init__(self, window_center, window_width, channel):
         self.window_center, self.window_width = window_center, window_width
         self.channel = channel
 
     def perform_windowing(self, image):
         image = image - self.window_center
-        image[image < -self.window_width/2] = -self.window_width/2
-        image[image > self.window_width/2] = self.window_width/2
+        image[image < -self.window_width / 2] = -self.window_width / 2
+        image[image > self.window_width / 2] = self.window_width / 2
         return image
 
     def __call__(self, images):
         images = images.copy()
-        images[..., self.channel] = self.perform_windowing(
-            images[..., self.channel]
-        )
+        images[..., self.channel] = self.perform_windowing(images[..., self.channel])
         return images
 
 
 class MultipleWindowsPreprocessor(WindowingPreprocessor):
     """Used to create multiple windows of the same channel.
     """
+
     def __init__(self, window_centers, window_widths, channel):
         self.window_centers = window_centers
         self.window_widths = window_widths
@@ -93,8 +96,7 @@ class MultipleWindowsPreprocessor(WindowingPreprocessor):
     def generate_all_windows(self, images):
         channel = images[..., self.channel]
         new_channels = []
-        for window_center, window_width in zip(self.window_centers, 
-                                               self.window_widths):
+        for window_center, window_width in zip(self.window_centers, self.window_widths):
             self.window_center, self.window_width = window_center, window_width
             new_channel = self.perform_windowing(channel)
             new_channels.append(new_channel)
@@ -113,7 +115,6 @@ class MultipleWindowsPreprocessor(WindowingPreprocessor):
         return input_channels + len(self.window_widths) - 1
 
 
-
 class HoundsfieldWindowingPreprocessor(WindowingPreprocessor):
     """A windowing operator, with the option to set the Houndsfield unit offset.
 
@@ -121,8 +122,8 @@ class HoundsfieldWindowingPreprocessor(WindowingPreprocessor):
     but this makes the window centers on the same scale as what radiologists
     use.
     """
-    def __init__(self, window_center, window_width, channel=0,
-                 houndsfield_offset=1024):
+
+    def __init__(self, window_center, window_width, channel=0, houndsfield_offset=1024):
         window_center += houndsfield_offset
         super().__init__(window_center, window_width, channel)
 
@@ -134,12 +135,13 @@ class MultipleHoundsfieldWindowsPreprocessor(MultipleWindowsPreprocessor):
     but this makes the window centers on the same scale as what radiologists
     use.
     """
-    def __init__(self, window_centers, window_widths, channel=0,
-                 houndsfield_offset=1024):
+
+    def __init__(
+        self, window_centers, window_widths, channel=0, houndsfield_offset=1024
+    ):
         window_centers = [wc + houndsfield_offset for wc in window_centers]
         super().__init__(window_centers, window_widths, channel)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
-

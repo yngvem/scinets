@@ -2,8 +2,8 @@
 """
 
 
-__author__ = 'Yngve Mardal Moe'
-__email__ = 'yngve.m.moe@gmail.com'
+__author__ = "Yngve Mardal Moe"
+__email__ = "yngve.m.moe@gmail.com"
 
 
 import numpy as np
@@ -17,9 +17,19 @@ from ..data import preprocessing
 class HDFData:
     """Wrapper for HDF5 files for tensorflow. Creates a Tensorflow dataset.
     """
-    def __init__(self, data_path, batch_size, group='train', dataset='images',
-                 target='masks', prefetch=1, keep_in_ram=False, 
-                 preprocessor=None, name='data_reader'):
+
+    def __init__(
+        self,
+        data_path,
+        batch_size,
+        group="train",
+        dataset="images",
+        target="masks",
+        prefetch=1,
+        keep_in_ram=False,
+        preprocessor=None,
+        name="data_reader",
+    ):
         """Setup the data reader.
 
         This will not prepare the dequeue instances. The `prepare_data`
@@ -29,6 +39,7 @@ class HDFData:
         -----------
         data_path : str
             The path to the h5 file.
+        batch_size : int
         group : str
             Internal path to the h5 group where the data is.
         dataset : str
@@ -45,7 +56,7 @@ class HDFData:
             The preproccesing method to use. Must be an element of the
             `scinets.data.preprocessor` module.
         """
-        group = group if group[0] == '/' else '/'+ group
+        group = group if group[0] == "/" else "/" + group
 
         self.data_path = str(data_path)
         self.group = group
@@ -68,7 +79,7 @@ class HDFData:
 
         if keep_in_ram:
             self.data_dict = self._extract_dataset_as_dict()
-    
+
         # Get tensorflow dataset and related objects
         with tf.variable_scope(name):
             self.tf_iterator = self._get_tf_iterator()
@@ -79,8 +90,8 @@ class HDFData:
         """Return the shape of the h5 dataset.
         """
         g = h5[self.group]
-        if 'shape' in g[name].attrs:
-            return tuple(g[name].attrs['shape'])
+        if "shape" in g[name].attrs:
+            return tuple(g[name].attrs["shape"])
         else:
             return tuple(g[name].shape[1:])
 
@@ -96,11 +107,16 @@ class HDFData:
         output_types = (tf.int16, tf.float32, tf.float32)
         output_shapes = ([], self.data_shape, self.target_shape)
 
-        tf_dataset = tf.data.Dataset.from_generator(
-            generator=self.iterate_dataset_randomly,
-            output_types=output_types,
-            output_shapes=output_shapes
-            ).repeat().batch(self.batch_size).prefetch(self.prefetch)
+        tf_dataset = (
+            tf.data.Dataset.from_generator(
+                generator=self.iterate_dataset_randomly,
+                output_types=output_types,
+                output_shapes=output_shapes,
+            )
+            .repeat()
+            .batch(self.batch_size)
+            .prefetch(self.prefetch)
+        )
 
         return tf_dataset.make_initializable_iterator()
 
@@ -131,21 +147,21 @@ class HDFData:
         if self.keep_in_ram:
             yield from self._iterate_dataset_randomly(self.data_dict)
         else:
-            with h5py.File(self.data_path, 'r') as h5:
+            with h5py.File(self.data_path, "r") as h5:
                 yield from self._iterate_dataset_randomly(h5)
-            
+
     @staticmethod
     def _get_preprocessor(preprocessor):
         if preprocessor is None:
             return preprocessing.Preprocessor()
         elif isinstance(preprocessor, dict):
-            operator = preprocessor['operator']
-            kwargs = preprocessor.get('arguments', {})
+            operator = preprocessor["operator"]
+            kwargs = preprocessor.get("arguments", {})
             return getattr(preprocessing, operator)(**kwargs)
         elif callable(preprocessor):
             return preprocessor
         else:
-            raise ValueError('`preprocess` must be either `None` or a dict')
+            raise ValueError("`preprocess` must be either `None` or a dict")
 
     def _iterate_dataset_randomly(self, dataset, preprocess=None):
         idxes = np.arange(len(self))
@@ -167,7 +183,7 @@ class HDFData:
             Dictionary containing the contents of the specified HDF5 group.
         """
         group_dict = {}
-        with h5py.File(self.data_path, 'r') as h5:
+        with h5py.File(self.data_path, "r") as h5:
             group = h5[self.group]
 
             images = group[self.data_name][:]
@@ -185,13 +201,13 @@ class HDFData:
         """The indices of the current image batch.
         """
         return self._next_el_op[0]
-    
+
     @property
     def images(self):
         """The tensorflow operator to get the current image batch.
         """
         return self._next_el_op[1]
-     
+
     @property
     def targets(self):
         """The Tensorflow operator to get the current batch of masks.
@@ -200,10 +216,21 @@ class HDFData:
 
 
 class HDFDataset:
-    def __init__(self, data_path, batch_size, train_group='train', 
-                 val_group='validation', test_group='test', dataset='images',
-                 target='masks', prefetch=1, keep_in_ram=False,
-                 preprocessor=None, is_training=None, is_testing=None):
+    def __init__(
+        self,
+        data_path,
+        batch_size,
+        train_group="train",
+        val_group="validation",
+        test_group="test",
+        dataset="images",
+        target="masks",
+        prefetch=1,
+        keep_in_ram=False,
+        preprocessor=None,
+        is_training=None,
+        is_testing=None,
+    ):
         """Setup the data reader.
 
         The HDF5 file should have one group for the training set, one for the
@@ -245,20 +272,20 @@ class HDFDataset:
             should be used. If `is_training` is True, this is ignored.
         """
         if isinstance(batch_size, int):  # Check if batch_size is iterable
-            batch_size = [batch_size]*3
+            batch_size = [batch_size] * 3
         if is_training is None:
-            is_training = tf.placeholder_with_default(True, shape=[], 
-                                                      name='is_training')
+            is_training = tf.placeholder_with_default(
+                True, shape=[], name="is_training"
+            )
         if is_testing is None:
-            is_testing = tf.placeholder_with_default(False, shape=[],
-                                                     name='is_testing')
+            is_testing = tf.placeholder_with_default(False, shape=[], name="is_testing")
         self.data_path = str(data_path)
 
         self.is_training = is_training
         self.is_testing = is_testing
         self.batch_size = batch_size
-        
-        with tf.variable_scope('data_loader'):
+
+        with tf.variable_scope("data_loader"):
             self.train_data_reader = HDFData(
                 data_path=data_path,
                 batch_size=batch_size[0],
@@ -268,7 +295,7 @@ class HDFDataset:
                 prefetch=prefetch,
                 keep_in_ram=keep_in_ram,
                 preprocessor=preprocessor,
-                name='train_reader'
+                name="train_reader",
             )
             self.val_data_reader = HDFData(
                 data_path=data_path,
@@ -279,7 +306,7 @@ class HDFDataset:
                 prefetch=prefetch,
                 keep_in_ram=keep_in_ram,
                 preprocessor=preprocessor,
-                name='val_reader'
+                name="val_reader",
             )
             self.test_data_reader = HDFData(
                 data_path=data_path,
@@ -290,58 +317,61 @@ class HDFDataset:
                 prefetch=prefetch,
                 keep_in_ram=keep_in_ram,
                 preprocessor=preprocessor,
-                name='test_reader'
+                name="test_reader",
             )
             self._create_conditionals()
 
     def _create_conditionals(self):
         """Set up conditional operators specifying which datasets to use.
         """
-        with tf.variable_scope('test_train_or_val'):
+        with tf.variable_scope("test_train_or_val"):
             val_test_data = tf.cond(
                 self.is_testing,
                 true_fn=lambda: self._test_data,
                 false_fn=lambda: self._val_data,
-                name='use_test_data'
+                name="use_test_data",
             )
             self._conditional_data = tf.cond(
                 self.is_training,
                 true_fn=lambda: self._train_data,
                 false_fn=lambda: val_test_data,
-                name='use_train_data'
+                name="use_train_data",
             )
 
             val_test_target = tf.cond(
                 self.is_testing,
                 true_fn=lambda: self._test_target,
                 false_fn=lambda: self._val_target,
-                name='use_test_target'
+                name="use_test_target",
             )
             self._conditional_target = tf.cond(
                 self.is_training,
                 true_fn=lambda: self._train_target,
                 false_fn=lambda: val_test_target,
-                name='use_train_target'
+                name="use_train_target",
             )
 
             val_test_idxes = tf.cond(
                 self.is_testing,
                 true_fn=lambda: self._test_idxes,
                 false_fn=lambda: self._val_idxes,
-                name='use_test_idxes'
+                name="use_test_idxes",
             )
             self._conditional_idxes = tf.cond(
                 self.is_training,
                 true_fn=lambda: self._train_idxes,
                 false_fn=lambda: val_test_idxes,
-                name='use_train_idxes'
+                name="use_train_idxes",
             )
 
     @property
     def initializers(self):
-        return [self.train_data_reader.initializer,
-                self.test_data_reader.initializer,
-                self.val_data_reader.initializer]
+        return [
+            self.train_data_reader.initializer,
+            self.test_data_reader.initializer,
+            self.val_data_reader.initializer,
+        ]
+
     @property
     def data(self):
         return self._conditional_data
@@ -357,7 +387,7 @@ class HDFDataset:
     @property
     def _train_data(self):
         return self.train_data_reader.images
-    
+
     @property
     def _train_target(self):
         return self.train_data_reader.targets
@@ -369,7 +399,7 @@ class HDFDataset:
     @property
     def _val_data(self):
         return self.val_data_reader.images
-    
+
     @property
     def _val_target(self):
         return self.val_data_reader.targets
@@ -381,7 +411,7 @@ class HDFDataset:
     @property
     def _test_data(self):
         return self.test_data_reader.images
-    
+
     @property
     def _test_target(self):
         return self.test_data_reader.targets
@@ -392,11 +422,11 @@ class HDFDataset:
 
 
 class MNISTDataset(HDFDataset):
-    def __init__(self, batch_size=128, is_training=None, is_testing=None,
-                 name='scope'):
+    def __init__(self, batch_size=128, is_training=None, is_testing=None, name="scope"):
         if is_training is None:
-            is_training = tf.placeholder_with_default(True, shape=[], 
-                                                      name='is_training')
+            is_training = tf.placeholder_with_default(
+                True, shape=[], name="is_training"
+            )
         self.is_training = is_training
         self.batch_size = batch_size
         self.epoch = 40000
@@ -415,14 +445,17 @@ class MNISTDataset(HDFDataset):
         dataset = tf.data.Dataset.from_generator(
             generator=generator,
             output_types=(tf.int16, tf.float32, tf.float32),
-            output_shapes=([], [self.batch_size, 28, 28, 1],
-                            [self.batch_size, 1, 1, 10])
+            output_shapes=(
+                [],
+                [self.batch_size, 28, 28, 1],
+                [self.batch_size, 1, 1, 10],
+            ),
         )
         tf_iterator = dataset.make_one_shot_iterator()
         return tf_iterator.get_next()
 
     def _iterate_train_dataset(self):
-        dataset = input_data.read_data_sets('MNIST_data', one_hot=True)
+        dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
         while True:
             x, y = dataset.train.next_batch(self.batch_size)
             x = x.reshape((self.batch_size, 28, 28, 1))
@@ -430,7 +463,7 @@ class MNISTDataset(HDFDataset):
             yield 0, x, y
 
     def _iterate_val_dataset(self):
-        dataset = input_data.read_data_sets('MNIST_data', one_hot=True)
+        dataset = input_data.read_data_sets("MNIST_data", one_hot=True)
         while True:
             x, y = dataset.test.next_batch(self.batch_size)
             x = x.reshape((self.batch_size, 28, 28, 1))
@@ -440,26 +473,26 @@ class MNISTDataset(HDFDataset):
     def _create_conditionals(self):
         """Set up conditional operators specifying which datasets to use.
         """
-        with tf.variable_scope('test_train_or_val'):
+        with tf.variable_scope("test_train_or_val"):
             self._conditional_data = tf.cond(
                 self.is_training,
                 true_fn=lambda: self._train_data,
                 false_fn=lambda: self._val_data,
-                name='use_train_data'
+                name="use_train_data",
             )
 
             self._conditional_target = tf.cond(
                 self.is_training,
                 true_fn=lambda: self._train_target,
                 false_fn=lambda: self._val_target,
-                name='use_train_target'
+                name="use_train_target",
             )
 
             self._conditional_idxes = tf.cond(
                 self.is_training,
                 true_fn=lambda: self._train_idxes,
                 false_fn=lambda: self._val_idxes,
-                name='use_train_idxes'
+                name="use_train_idxes",
             )
 
     @property
@@ -477,7 +510,7 @@ class MNISTDataset(HDFDataset):
     @property
     def _train_data(self):
         return self._train_next_el_op[1]
-    
+
     @property
     def _train_target(self):
         return self._train_next_el_op[2]
@@ -489,7 +522,7 @@ class MNISTDataset(HDFDataset):
     @property
     def _val_data(self):
         return self._val_next_el_op[1]
-    
+
     @property
     def _val_target(self):
         return self._val_next_el_op[2]
@@ -499,9 +532,5 @@ class MNISTDataset(HDFDataset):
         return self._val_next_el_op[0]
 
 
-
-
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     pass
-

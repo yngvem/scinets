@@ -1,20 +1,26 @@
 """
 TODO: Move TensorBoard log methods to separate class.
 """
-__author__ = 'Yngve Mardal Moe'
-__email__ = 'yngve.m.moe@gmail.com'
+__author__ = "Yngve Mardal Moe"
+__email__ = "yngve.m.moe@gmail.com"
 
 
 import tensorflow as tf
-import numpy as np 
+import numpy as np
 from pathlib import Path
 from copy import deepcopy
 from collections import ChainMap
 
 
 class BaseLogger:
-    def __init__(self, evaluator, additional_vars=None, log_dicts=None, train_log_dicts=None,
-                 val_log_dicts=None):
+    def __init__(
+        self,
+        evaluator,
+        additional_vars=None,
+        log_dicts=None,
+        train_log_dicts=None,
+        val_log_dicts=None,
+    ):
         """Superclass for loggers.
 
         Parameters
@@ -74,8 +80,8 @@ class BaseLogger:
             return self.network.params[var_name]
         else:
             raise AttributeError(
-                f'{var_name} not an attribute of {self.network.name} or ' \
-                    'in its parameter dictionary.'
+                f"{var_name} not an attribute of {self.network.name} or "
+                "in its parameter dictionary."
             )
 
     def _init_logs(self, log_dicts):
@@ -94,20 +100,17 @@ class BaseLogger:
         log_list = []
         for log_dict in log_dicts:
             log_dict = deepcopy(log_dict)
-            log_dict['var_name'] = log_dict['log_var']
-            log_dict['log_var'] = self._get_log_var(log_dict['log_var'])
-            log_list.append(
-                self._init_log(**log_dict)
-            )
+            log_dict["var_name"] = log_dict["log_var"]
+            log_dict["log_var"] = self._get_log_var(log_dict["log_var"])
+            log_list.append(self._init_log(**log_dict))
         return log_list
 
     def _init_log(self, log_var, *args, **kwargs):
         """Create a specific log operator.
         """
-        raise NotImplementedError('Subclasses must implement this function')
+        raise NotImplementedError("Subclasses must implement this function")
 
-    def log_multiple(self, summaries, it_nums, log_type='train', *args,
-                     **kwargs):
+    def log_multiple(self, summaries, it_nums, log_type="train", *args, **kwargs):
         """Log summaries for several single time steps.
 
         Parameters
@@ -123,7 +126,7 @@ class BaseLogger:
         for summary, it_num in zip(summaries, it_nums):
             self.log(summary, it_num, log_type=log_type, **kwargs)
 
-    def log(self, summary, it_num, log_type='train', *args, **kwargs):
+    def log(self, summary, it_num, log_type="train", *args, **kwargs):
         """Log summaries for a single time step.
 
         Parameters
@@ -137,19 +140,26 @@ class BaseLogger:
             be used.
         """
         log_type = log_type.lower()
-        if log_type != 'train' and log_type != 'val':
-            raise ValueError('`log_type` must be either `train` or `val`.')
+        if log_type != "train" and log_type != "val":
+            raise ValueError("`log_type` must be either `train` or `val`.")
 
         self._log(summary, it_num, log_type, **kwargs)
 
     def _log(summary, it_num, log_type, *args, **kwargs):
-        raise NotImplementedError('This should be overloaded by subclasses')
+        raise NotImplementedError("This should be overloaded by subclasses")
 
 
 class TensorboardLogger(BaseLogger):
-    def __init__(self, evaluator, log_all_params=False, additional_vars=None,
-                 log_dicts=None, train_log_dicts=None, val_log_dicts=None,
-                 log_dir='./logs'):
+    def __init__(
+        self,
+        evaluator,
+        log_all_params=False,
+        additional_vars=None,
+        log_dicts=None,
+        train_log_dicts=None,
+        val_log_dicts=None,
+        log_dir="./logs",
+    ):
         """Initiates a TensorBoard logger.
 
         Summary operators are created according to the parameters specified
@@ -230,40 +240,45 @@ class TensorboardLogger(BaseLogger):
             The directory to store the logs in.
         """
         if log_all_params:
-            train_log_dicts = self._extend_with_params(train_log_dicts,
-                                                       evaluator.network)
+            train_log_dicts = self._extend_with_params(
+                train_log_dicts, evaluator.network
+            )
 
         super().__init__(
             evaluator=evaluator,
             additional_vars=additional_vars,
             log_dicts=log_dicts,
             train_log_dicts=train_log_dicts,
-            val_log_dicts=val_log_dicts
+            val_log_dicts=val_log_dicts,
         )
 
         # Prepare for file writers
-        self.log_dir = Path(log_dir)/self.network.name/'tensorboard'
+        self.log_dir = Path(log_dir) / self.network.name / "tensorboard"
         self.train_writer = None
         self.val_writer = None
         self.save_step = None
         self.log_step = None
 
-        with tf.name_scope('summaries'):
+        with tf.name_scope("summaries"):
             self.train_summary_op, self.val_summary_op = self._init_merged_logs()
-    
+
     @staticmethod
     def _extend_with_params(train_log_dicts, model):
-        if str(train_log_dicts) == 'None':
+        if str(train_log_dicts) == "None":
             train_log_dicts = {}
 
         log_generator1 = (
-            {'log_name': log_var, 'log_var': log_var, 'log_type': 'histogram'}
-                for log_var in model.params
+            {"log_name": log_var, "log_var": log_var, "log_type": "histogram"}
+            for log_var in model.params
         )
         log_generator2 = (
-            {'log_name': 'gradients_'+log_var, 'log_var': log_var,
-             'log_type': 'gradient_histogram'}
-                for log_var in model.params if 'kernel' in log_var
+            {
+                "log_name": "gradients_" + log_var,
+                "log_var": log_var,
+                "log_type": "gradient_histogram",
+            }
+            for log_var in model.params
+            if "kernel" in log_var
         )
         return (*tuple(train_log_dicts), *log_generator1, *log_generator2)
 
@@ -272,12 +287,8 @@ class TensorboardLogger(BaseLogger):
         train_summary_ops = self._init_logs(self.train_log_dicts)
         val_summary_ops = self._init_logs(self.val_log_dicts)
 
-        train_summary_op = tf.summary.merge(
-            both_summary_ops + train_summary_ops
-        )
-        val_summary_op = tf.summary.merge(
-            both_summary_ops + val_summary_ops
-        )
+        train_summary_op = tf.summary.merge(both_summary_ops + train_summary_ops)
+        val_summary_op = tf.summary.merge(both_summary_ops + val_summary_ops)
         return train_summary_op, val_summary_op
 
     def _init_log(self, log_var, log_type, log_name, var_name, log_kwargs=None):
@@ -293,23 +304,18 @@ class TensorboardLogger(BaseLogger):
         log_kwargs : dict
             Dictionary with additional keyword arguments for the log function.
         """
-        if not hasattr(self, '_create_'+log_type+'_log'):
-            available_log_types = '\n'.join(self.available_log_types())
+        if not hasattr(self, "_create_" + log_type + "_log"):
+            available_log_types = "\n".join(self.available_log_types())
             raise AttributeError(
-                f'{log_type} is not a valid logging type, valid log types are:' \
-                f'\n {available_log_types}'
-
+                f"{log_type} is not a valid logging type, valid log types are:"
+                f"\n {available_log_types}"
             )
         if log_kwargs is None:
             log_kwargs = {}
 
-        log_function = getattr(self, '_create_'+log_type+'_log')        
-        with tf.name_scope(var_name.replace(':', '_')):
-            return log_function(
-                log_name=log_name,
-                log_var=log_var,
-                **log_kwargs
-            )
+        log_function = getattr(self, "_create_" + log_type + "_log")
+        with tf.name_scope(var_name.replace(":", "_")):
+            return log_function(log_name=log_name, log_var=log_var, **log_kwargs)
 
     def init_file_writers(self, session, save_step=100):
         """Initiate the FileWriters that save the train and validation logs.
@@ -321,12 +327,13 @@ class TensorboardLogger(BaseLogger):
             How often results should be stored to disk
         """
         self.session = session
-        self.train_writer = tf.summary.FileWriter(str(self.log_dir/'train'),
-                                                  self.session.graph)
-        self.val_writer = tf.summary.FileWriter(str(self.log_dir/'test'))
-        self.save_step  = save_step
+        self.train_writer = tf.summary.FileWriter(
+            str(self.log_dir / "train"), self.session.graph
+        )
+        self.val_writer = tf.summary.FileWriter(str(self.log_dir / "test"))
+        self.save_step = save_step
 
-    def log(self, summary, it_num, log_type='train'):
+    def log(self, summary, it_num, log_type="train"):
         """Log summaries for a single time step.
 
         Parameters
@@ -344,8 +351,8 @@ class TensorboardLogger(BaseLogger):
         if it_num % self.save_step == 0:
             self.save_logs()
 
-    def _log(self, summary, it_num, log_type='train'):
-        if log_type == 'train':
+    def _log(self, summary, it_num, log_type="train"):
+        if log_type == "train":
             writer = self.train_writer
         else:
             writer = self.val_writer
@@ -363,13 +370,13 @@ class TensorboardLogger(BaseLogger):
         """List all available log methods.
         """
         return [
-            attribute[9:-4] for attribute in dir(cls)
-                if attribute[:8] == '_create_' and attribute[-4:] == '_log'
+            attribute[9:-4]
+            for attribute in dir(cls)
+            if attribute[:8] == "_create_" and attribute[-4:] == "_log"
         ]
 
     # ----------------------------- Log methods ----------------------------- #
-    def _create_histogram_log(self, log_name, log_var, family=None,
-                              ignore_nan=False):
+    def _create_histogram_log(self, log_name, log_var, family=None, ignore_nan=False):
         if ignore_nan:
             log_var = tf.boolean_mask(log_var, tf.logical_not(tf.is_nan(log_var)))
         return tf.summary.histogram(log_name, log_var, family=family)
@@ -381,23 +388,25 @@ class TensorboardLogger(BaseLogger):
         log_var = tf.log(log_var)
         return tf.summary.scalar(log_name, log_var, family=family)
 
-    def _create_image_log(self, log_name, log_var, max_outputs=3, channel=None,
-                          family=None):
+    def _create_image_log(
+        self, log_name, log_var, max_outputs=3, channel=None, family=None
+    ):
         if channel is not None:
             log_var = log_var[..., channel, tf.newaxis]
 
-        return tf.summary.image(log_name, log_var, max_outputs=max_outputs,
-                                family=family)
+        return tf.summary.image(
+            log_name, log_var, max_outputs=max_outputs, family=family
+        )
 
-    def _create_gradient_histogram_log(self, log_name, log_var,
-                                       family='Gradients'):
+    def _create_gradient_histogram_log(self, log_name, log_var, family="Gradients"):
         grads = tf.gradients(self.network.loss, [log_var])[0]
         return tf.summary.histogram(log_name, grads, family=family)
 
 
 class SacredLogger(BaseLogger):
-    def __init__(self, evaluator, log_dicts=None, train_log_dicts=None,
-                 val_log_dicts=None):
+    def __init__(
+        self, evaluator, log_dicts=None, train_log_dicts=None, val_log_dicts=None
+    ):
         """Initiate a Sacred logger.
 
 
@@ -459,17 +468,15 @@ class SacredLogger(BaseLogger):
             evaluator=evaluator,
             log_dicts=log_dicts,
             train_log_dicts=train_log_dicts,
-            val_log_dicts=val_log_dicts
+            val_log_dicts=val_log_dicts,
         )
 
         both_summary_ops = self._init_logs(self.log_dicts)
         self.train_summary_op = self._join_summaries(
-            self._init_logs(self.train_log_dicts),
-            both_summary_ops
+            self._init_logs(self.train_log_dicts), both_summary_ops
         )
         self.val_summary_op = self._join_summaries(
-            self._init_logs(self.val_log_dicts),
-            both_summary_ops
+            self._init_logs(self.val_log_dicts), both_summary_ops
         )
 
     def _join_summaries(self, *args):
@@ -496,7 +503,7 @@ class SacredLogger(BaseLogger):
         """
         logs = tuple(super()._init_logs(log_dict))
         return [dict(ChainMap(*logs))]
-        
+
     def _init_log(self, log_var, log_name, *args, **kwargs):
         """Create a specific log operator.
         
@@ -507,9 +514,9 @@ class SacredLogger(BaseLogger):
         log_var : tensorflow.Tensor
         log_name : str
         """
-        return {log_name: log_var} 
+        return {log_name: log_var}
 
-    def log_multiple(self, summaries, it_nums, log_type='train', _run=None):
+    def log_multiple(self, summaries, it_nums, log_type="train", _run=None):
         """Log summaries for several single time steps.
 
         Parameters
@@ -525,16 +532,15 @@ class SacredLogger(BaseLogger):
             The sacred instance to use for logging.
         """
         if _run is None:
-            raise ValueError('Run instance must be provided.')
+            raise ValueError("Run instance must be provided.")
 
         summary = {log_var: 0 for log_var in summaries[0][0]}
         for log in summaries:
             for log_var, log_value in log[0].items():
-                summary[log_var] += np.mean(log_value)/len(it_nums)
+                summary[log_var] += np.mean(log_value) / len(it_nums)
         self.log([summary], it_nums[-1], log_type=log_type, _run=_run)
-            
 
-    def log(self, summary, it_num, log_type='train', _run=None):
+    def log(self, summary, it_num, log_type="train", _run=None):
         """Log summaries for a single time step.
 
         Parameters
@@ -551,9 +557,8 @@ class SacredLogger(BaseLogger):
             The sacred instance to use for logging.
         """
         if _run is None:
-            raise ValueError('Run instance must be provided.')
-        super().log(summary=summary, it_num=it_num,
-                    _run=_run, log_type=log_type)
+            raise ValueError("Run instance must be provided.")
+        super().log(summary=summary, it_num=it_num, _run=_run, log_type=log_type)
 
     def _log(self, summary, it_num, log_type, _run):
         """Logs a single time step.
@@ -566,5 +571,3 @@ class SacredLogger(BaseLogger):
                 if np.isnan(s):
                     s = -1
                 _run.log_scalar(name, s, it_num)
-
-
