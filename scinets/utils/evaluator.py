@@ -208,10 +208,12 @@ class NetworkTester:
         """
         feed_dict = self.get_feed_dict(dataset_type)
         num_its = self.get_numits(dataset_type)
+        dataset = self.get_dataset(dataset_type)
 
         performances = []
         for i in range(num_its):
             performances.append(sess.run(self.performance_ops, feed_dict=feed_dict))
+        performances = performances[:len(dataset)]
 
         return self._create_performance_dict(performances)
 
@@ -222,7 +224,7 @@ class NetworkTester:
         data_len = len(dataset)
         hdf_datareader = getattr(self.dataset, f"{dataset_type}_data_reader")
 
-        with h5py.File(filename, "a") as h5:
+        with h5py.File(filename, "w") as h5:
             data_group = h5.create_group(dataset_type)
             data_group.create_dataset("idxes", dtype=np.int32, shape=[data_len])
             data_group.create_dataset(
@@ -234,6 +236,10 @@ class NetworkTester:
             data_group.create_dataset(
                 "masks", dtype=np.float32, shape=(data_len, *dataset.target_shape)
             )
+            for performance_metric in self.performance_ops:
+                data_group.create_dataset(
+                    performance_metric, dtype=np.float32, shape=(data_len,)
+                )
 
     def _update_outputs(self, outputs, it_num, h5, dataset_type):
         """Save the latest batch output to the h5file at the correct location.
@@ -249,17 +255,14 @@ class NetworkTester:
             extra_evals = new_length - data_len
             new_length = data_len
 
-            outputs["idxes"] = outputs["idxes"][:-extra_evals]
-            outputs["images"] = outputs["images"][:-extra_evals]
-            outputs["prediction"] = outputs["prediction"][:-extra_evals]
-            outputs["masks"] = outputs["masks"][:-extra_evals]
+            for key, output in outputs.items():
+                outputs[key] = outputs[key][:-extra_evals]
+
 
         # Insert new evaluations
         group = h5[f"{dataset_type}"]
-        group["idxes"][prev_length:new_length] = outputs["idxes"]
-        group["images"][prev_length:new_length] = outputs["images"]
-        group["prediction"][prev_length:new_length] = outputs["prediction"]
-        group["masks"][prev_length:new_length] = outputs["masks"]
+        for output_type, output in outputs.items():
+            group[output_type][prev_length:new_length] = outputs[output_type]
 
     def save_outputs(self, dataset_type, filename, sess, save_probabilities=False):
         dataset = self.get_dataset(dataset_type)
@@ -277,6 +280,7 @@ class NetworkTester:
             "idxes": self.dataset.idxes,
             "images": self.dataset.data,
             "masks": self.dataset.target,
+            **self.performance_ops,
         }
 
         self._init_output_file(dataset_type=dataset_type, filename=filename)
