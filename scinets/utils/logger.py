@@ -474,8 +474,10 @@ class HDF5Logger(BaseLogger):
         with h5py.File(self.filepath, "w") as h5:
             h5.create_group("train")
             h5.create_group("val")
-            h5['train'].create_dataset('it', dtype=np.int32, shape=(0,), maxshape=(None,))
-            h5['val'].create_dataset('it', dtype=np.int32, shape=(0,), maxshape=(None,))
+            h5["train"].create_dataset(
+                "it", dtype=np.int32, shape=(0,), maxshape=(None,)
+            )
+            h5["val"].create_dataset("it", dtype=np.int32, shape=(0,), maxshape=(None,))
 
     def _join_summaries(self, *args):
         """Join the summaries to one summary list with one dict.
@@ -528,8 +530,8 @@ class HDF5Logger(BaseLogger):
         """
         with h5py.File(self.filepath, "a") as h5:
             group = h5[log_type]
-            group['it'].resize((group['it'].shape[0] + 1,))
-            group['it'][-1] = it_num
+            group["it"].resize((group["it"].shape[0] + 1,))
+            group["it"][-1] = it_num
             for name, s in summaries.items():
                 dataset = group[name]
                 dataset.resize((dataset.shape[0] + 1,))
