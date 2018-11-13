@@ -117,9 +117,7 @@ if __name__ == "__main__":
                 )
         experiment.train(num_steps)
         if eval_metric is not None:
-            best_it, result, result_std = experiment.find_best_model(
-                "val", eval_metric
-            )
+            best_it, result, result_std = experiment.find_best_model("val", eval_metric)
             print(f'{" Final score ":=^80s}')
             print(
                 f" Achieved a {eval_metric:s} of {result:.3f}, with a standard "
