@@ -1,6 +1,0 @@
-{
-    "log_dir": "./logs/",
-    "name": "espen_test",
-    "continue_old": false,
-    "verbose": true
-}
