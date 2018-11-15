@@ -1,0 +1,432 @@
+{
+    "type": "UNet",
+    "network_params": {
+        "loss_function": "binary_f_beta",
+        "loss_kwargs": {"beta": 2},
+        "skip_connections": [
+            ["conv2", "upconv4"],
+            ["conv4", "upconv3"],
+            ["conv6", "upconv2"],
+            ["conv8", "upconv1"]
+        ],
+        "architecture": [
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv1",
+                    "layer_params": {
+                        "out_size": 64,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv2",
+                    "layer_params": {
+                        "out_size": 64,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "MaxPool",
+                    "scope": "max_pool1",
+                    "layer_params": {
+                        "pool_size": 2
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv3",
+                    "layer_params": {
+                        "out_size": 128,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv4",
+                    "layer_params": {
+                        "out_size": 128,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "MaxPool",
+                    "scope": "max_pool2",
+                    "layer_params": {
+                        "pool_size": 2
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv5",
+                    "layer_params": {
+                        "out_size": 256,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv6",
+                    "layer_params": {
+                        "out_size": 256,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "MaxPool",
+                    "scope": "max_pool3",
+                    "layer_params": {
+                        "pool_size": 2
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv7",
+                    "layer_params": {
+                        "out_size": 512,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv8",
+                    "layer_params": {
+                        "out_size": 512,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "MaxPool",
+                    "scope": "max_pool4",
+                    "layer_params": {
+                        "pool_size": 2
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv9",
+                    "layer_params": {
+                        "out_size": 1024,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv10",
+                    "layer_params": {
+                        "out_size": 1024,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Upconv2D",
+                    "scope": "upconv1",
+                    "layer_params": {
+                        "out_size": 512,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv11",
+                    "layer_params": {
+                        "out_size": 512,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv12",
+                    "layer_params": {
+                        "out_size": 512,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Upconv2D",
+                    "scope": "upconv2",
+                    "layer_params": {
+                        "out_size": 256,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv13",
+                    "layer_params": {
+                        "out_size": 256,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv14",
+                    "layer_params": {
+                        "out_size": 256,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Upconv2D",
+                    "scope": "upconv3",
+                    "layer_params": {
+                        "out_size": 128,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv15",
+                    "layer_params": {
+                        "out_size": 128,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv16",
+                    "layer_params": {
+                        "out_size": 128,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Upconv2D",
+                    "scope": "upconv4",
+                    "layer_params": {
+                        "out_size": 64,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv17",
+                    "layer_params": {
+                        "out_size": 64,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv18",
+                    "layer_params": {
+                        "out_size": 64,
+                        "k_size": 3
+                    },
+                    "normalizer": {
+                        "operator": "batch_normalization"
+                    },
+                    "activation": {
+                        "operator": "relu"
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    }
+                },
+                {
+                    "layer": "Conv2D",
+                    "scope": "conv19",
+                    "layer_params": {
+                        "out_size": 1,
+                        "k_size": 3
+                    },
+                    "initializer": {
+                        "operator": "he_normal"
+                    },
+                    "activation": {
+                        "operator": "sigmoid"
+                    }
+                }
+        ]
+    }
+}
+

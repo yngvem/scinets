@@ -32,18 +32,11 @@
                 "log_kwargs": {"max_outputs":1}
             },
             {
-                "log_name": "CT",
+                "log_name": "CT_c70_w100",
                 "log_var": "input",
                 "log_type": "image",
                 "log_kwargs": {"max_outputs": 1,
                             "channel": 0}
-            },
-            {
-                "log_name": "PET",
-                "log_var": "input",
-                "log_type": "image",
-                "log_kwargs": {"max_outputs": 1,
-                               "channel": 1}
             },
             {
                 "log_name": "Probability_map",
@@ -95,5 +88,32 @@
                 "log_var": "recall"
             }
         ]
+    },
+    "h5_params": {
+        "log_dicts": [
+            {
+                "log_name": "Loss",
+                "log_var": "loss"
+            },
+            {
+                "log_name": "Accuracy",
+                "log_var": "accuracy"
+            },
+            {
+                "log_name": "Dice",
+                "log_var": "dice"
+            },
+            {
+                "log_name": "precision",
+                "log_var": "precision"
+            },
+            {
+                "log_name": "recall",
+                "log_var": "recall"
+            }
+        ]
+    },
+    "network_tester": {
+        "metrics": ["dice", "true_positives", "true_negatives", "precision", "recall"]
     }
 }
