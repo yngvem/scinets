@@ -14,7 +14,7 @@ from . import layers
 from . import losses
 
 
-class NeuralNet:
+class BaseModel:
     def __init__(
         self,
         input_var,
@@ -24,12 +24,9 @@ class NeuralNet:
         true_out=None,
         loss_function=None,
         loss_kwargs=None,
-        device=None,
         verbose=False,
     ):
         """
-        Create a standard feed-forward net.
-
         Parameters
         ----------
         input_var : tf.Variable
@@ -75,8 +72,7 @@ class NeuralNet:
         self.reg_lists = {}
 
         with tf.variable_scope(self.name) as self.vscope:
-            with tf.device(device):
-                self.build_model()
+            self.build_model()
 
         # Set loss function
         if true_out is not None and loss_function is not None:
@@ -119,6 +115,9 @@ class NeuralNet:
         if len(self.reg_list) > 0:
             self.reg_op = tf.add_n(self.reg_list, name="regularizers")
 
+    def buil_model(self):
+        pass
+
     def assemble_layer(self, layer_dict):
         """Assemble a single layer.
         """
@@ -135,10 +134,11 @@ class NeuralNet:
         for pname, param in layer.params.items():
             self.params[layer_dict["scope"] + "/" + pname] = param
 
+
+class NeuralNet(BaseModel):
     def build_model(self):
         """Assemble the network.
         """
-
         if self.verbose:
             print("\n" + 25 * "-" + "Assembling network" + 25 * "-")
 
@@ -151,7 +151,7 @@ class NeuralNet:
         self.collect_regularizers()
 
 
-class UNet(NeuralNet):
+class UNet(BaseModel):
     def __init__(
         self,
         input_var,
