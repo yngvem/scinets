@@ -8,10 +8,38 @@ from . import activations
 from . import regularizers
 from . import normalizers
 from . import initializers
+import difflib
+from operator import itemgetter
+from abc import ABC
 
 
 _ver = [int(v) for v in tf.__version__.split(".")]
 keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
+
+
+available_layers = {}
+
+
+def get_layer(layer):
+    """Return the layer class with the name `layer`.
+
+    Parameters:
+    -----------
+    layer : str
+    """
+    if layer not in available_layers:
+        def get_similarity(layer_):
+            return difflib.SequenceMatcher(None, layer, layer_).ratio()
+
+        traceback = f"{layer} is not a valid name for a Layer."
+        traceback = f"{traceback} \nAvailable layers are (in decreasing similarity):"
+
+        sorted_layers = sorted(available_layers, key=get_similarity, reverse=True)
+        for available_layer in sorted_layers:
+            traceback = f"{traceback}\n   * {available_layer}"
+
+        raise ValueError(traceback)
+    return available_layers[layer]
 
 
 class BaseLayer:
@@ -35,7 +63,7 @@ class BaseLayer:
         layer_params=None,
         verbose=False,
         *args,
-        **kwargs
+        **kwargs,
     ):
         if normalizer is not None and is_training is None:
             raise ValueError(
@@ -59,6 +87,13 @@ class BaseLayer:
 
             if verbose:
                 self._print_info(layer_params)
+
+    @classmethod
+    def __init_subclass__(cls):
+        name = cls.__name__
+        if name in available_layers:
+            raise ValueError("Cannot create two layers with the same name.")
+        available_layers[name] = cls
 
     def _get_scope(self, scope):
         if scope is None:
@@ -350,7 +385,6 @@ class FCLayer(BaseLayer):
 class Conv2D(BaseLayer):
     """A standard convolutional layer.
     """
-
     def _build_layer(
         self,
         out_size,
@@ -425,8 +459,7 @@ class Conv2D(BaseLayer):
             "Normalization: {}\n".format(self._normalizer_str),
             "Input shape: {}\n".format(self.input.get_shape().as_list()),
             "Output shape: {}".format(self.output.get_shape().as_list()),
-        )
-
+        ) 
 
 class Upconv2D(BaseLayer):
     """A standard upconv layer (sometimes called deconv or transposed conv).

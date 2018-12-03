@@ -121,7 +121,7 @@ class BaseModel:
     def assemble_layer(self, layer_dict):
         """Assemble a single layer.
         """
-        layer_class = getattr(layers, layer_dict["layer"])
+        layer_class = layers.get_layer(layer_dict["layer"])
         layer = layer_class(
             self.out, is_training=self.is_training, verbose=self.verbose, **layer_dict
         )
@@ -161,7 +161,6 @@ class UNet(BaseModel):
         is_training=None,
         true_out=None,
         loss_function=None,
-        device=None,
         loss_kwargs=None,
         verbose=False,
     ):
@@ -174,7 +173,6 @@ class UNet(BaseModel):
             true_out=true_out,
             loss_function=loss_function,
             loss_kwargs=loss_kwargs,
-            device=device,
             verbose=verbose,
         )
 
