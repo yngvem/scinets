@@ -5,7 +5,50 @@ __email__ = "yngve.m.moe@gmail.com"
 import difflib
 
 
-class SubclassRegister:
+class BaseRegister:
+    def __init__(self):
+        self.register = {}
+
+    def get_items_by_similarity(self, item):
+        def get_similarity(item_):
+            return difflib.SequenceMatcher(None, item, item_).ratio()
+
+        return sorted(self.register, key=get_similarity, reverse=True)
+
+    def validate_item_in_register(self, item):
+        if item not in self.register:
+            traceback = f"{item} is not a valid name for a {self.class_name}."
+            traceback = f"{traceback} \nAvailable {self.class_name}s are (in decreasing similarity):"
+
+            sorted_items = self.get_items_by_similarity(item)
+            for available in sorted_items:
+                traceback = f"{traceback}\n   * {available}"
+
+            raise ValueError(traceback)
+
+    def get_item(self, item):
+        self.validate_item_in_register(item)
+        return self.register[item]
+
+    def add_item(self, name, item):
+        if name in self.register:
+            raise ValueError(
+                f"Cannot register two items with the same name"
+            )
+        self.register[name] = item
+
+    def remove_item(self, name):
+        self.validate_item_in_register(item)
+        del self.register[name]
+
+
+class DictionaryRegister(BaseRegister):
+    def __init__(self, register):
+        super().__init__()
+        self.register = register
+
+
+class SubclassRegister(BaseRegister):
     """Creates a register instance used to register all subclasses of some base class.
 
     Use the `SubclassRegister.link` decorator to link a base class with
@@ -38,10 +81,8 @@ class SubclassRegister:
        * Sedan
        * SUV
     """
-
     def __init__(self, class_name):
         """
-
         Arguments:
         ----------
         class_name : str
@@ -49,8 +90,8 @@ class SubclassRegister:
             Used for errors.
         """
         self.class_name = class_name
-        self.register = {}
         self.linked_base = None
+        super().__init__()
 
     @property
     def available_classes(self):
@@ -71,13 +112,13 @@ class SubclassRegister:
             )
 
         @classmethod
-        def init_subclass(obj):
-            name = obj.__name__
+        def init_subclass(cls_):
+            name = cls_.__name__
             if name in self.register:
                 raise ValueError(
                     f"Cannot create two {self.class_name}s with the same name."
                 )
-            self.register[name] = obj
+            self.add_item(name, cls_)
 
         self.linked_base = cls
         cls.__init_subclass__ = init_subclass
@@ -92,24 +133,9 @@ class SubclassRegister:
             raise ValueError(
                 f"{cls.__name__} is not a subclass of {self.linked_base.__name__}"
             )
-        del self.register[cls.__name__]
+        self.remove_item(cls.__name__)
+
         return cls
-
-    def get_item(self, item):
-        if item not in self.register:
-
-            def get_similarity(item_):
-                return difflib.SequenceMatcher(None, item, item_).ratio()
-
-            traceback = f"{item} is not a valid name for a {self.class_name}."
-            traceback = f"{traceback} \nAvailable {self.class_name}s are (in decreasing similarity):"
-
-            sorted_items = sorted(self.register, key=get_similarity, reverse=True)
-            for available in sorted_items:
-                traceback = f"{traceback}\n   * {available}"
-
-            raise ValueError(traceback)
-        return self.register[item]
 
 
 if __name__ == "__main__":

@@ -1,1 +1,1 @@
-from .subclass_register import SubclassRegister
+from .subclass_register import SubclassRegister, DictionaryRegister
