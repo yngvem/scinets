@@ -18,7 +18,9 @@ keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
 
 
 layer_register = SubclassRegister('layer')
-get_layer = layer_register.get_item
+def get_layer(layer):
+    return layer_register.get_item(layer)
+
 
 
 @layer_register.link_base
