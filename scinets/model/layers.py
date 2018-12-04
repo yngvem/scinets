@@ -7,8 +7,8 @@ import numpy as np
 from . import activations
 from . import regularizers
 from . import normalizers
-from . import initializers
-import difflib
+from .initializers import get_initializer
+from .._backend_utils import SubclassRegister
 from operator import itemgetter
 from abc import ABC
 
@@ -17,32 +17,12 @@ _ver = [int(v) for v in tf.__version__.split(".")]
 keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
 
 
-available_layers = {}
+layer_register = SubclassRegister('layer')
+get_layer = layer_register.get_item
 
 
-def get_layer(layer):
-    """Return the layer class with the name `layer`.
-
-    Parameters:
-    -----------
-    layer : str
-    """
-    if layer not in available_layers:
-        def get_similarity(layer_):
-            return difflib.SequenceMatcher(None, layer, layer_).ratio()
-
-        traceback = f"{layer} is not a valid name for a Layer."
-        traceback = f"{traceback} \nAvailable layers are (in decreasing similarity):"
-
-        sorted_layers = sorted(available_layers, key=get_similarity, reverse=True)
-        for available_layer in sorted_layers:
-            traceback = f"{traceback}\n   * {available_layer}"
-
-        raise ValueError(traceback)
-    return available_layers[layer]
-
-
-class BaseLayer:
+@layer_register.link_base
+class BaseLayer(ABC):
     """Base class for all layers.
 
     To create new layers, one only needs to overload the `_build_layer`
@@ -65,7 +45,12 @@ class BaseLayer:
         *args,
         **kwargs,
     ):
-        if normalizer is not None and is_training is None:
+        if initializer is None:
+            initializer = {}
+
+        if normalizer is None:
+            normalizer = {}
+        elif is_training is None:
             raise ValueError(
                 "You have to supply the `is_training` placeholder for batch norm."
             )
@@ -75,7 +60,7 @@ class BaseLayer:
         self.is_training = is_training
         self.scope = self._get_scope(scope)
 
-        self.initializer, self._init_str = self._generate_initializer(initializer)
+        self.initializer, self._init_str = self._generate_initializer(**initializer)
         self.activation, self._act_str = self._generate_activation(activation)
         self.regularizer, self._reg_str = self._generate_regularizer(regularizer)
         self.normalizer, self._normalizer_str = self._generate_normalizer(normalizer)
@@ -87,13 +72,6 @@ class BaseLayer:
 
             if verbose:
                 self._print_info(layer_params)
-
-    @classmethod
-    def __init_subclass__(cls):
-        name = cls.__name__
-        if name in available_layers:
-            raise ValueError("Cannot create two layers with the same name.")
-        available_layers[name] = cls
 
     def _get_scope(self, scope):
         if scope is None:
@@ -127,60 +105,31 @@ class BaseLayer:
 
         return operator_func, operator_name
 
-    def _generate_initializer(self, initializer):
-        """Generates a initializer from dictionary.
+    def _generate_initializer(self, operator='he_normal', arguments=None):
+        """Generates a initializer from the operator name and argument dictionary.
 
-        The format of the dictionary is as follows
-        ```
-            {
-                'operator': <initializer_name>,
-                'arguments': {
-                                 'arg1': <value_1>,
-                                 'arg2': <value_2>
-                             }
-            }
-        ```
-        thus, if you want to use gaussian initialization with a standard
-        deviation of 0.1, the dicitonary should look like this
-        ```
-            {
-                'operator': 'gaussian',
-                'arguments': {
-                                 'stddev': 0.1
-                             }
-            }
-        ```
         for a full description of all possible initializers and their
         parameters, see the `initializers.py` file.
 
         Parameters
         ----------
-        initializers : dict
-            What normalizer to use, see examples above.
+        operator : str
+            The name of the initializer class to use.
+        arguments : dict
+            The keyword arguments used when creating the initializer instance.
 
         Returns
         -------
-        normalizer_func : function
-        normalizer_str : str
-            A string describing the initialiser returned 
-        """
-        """Generates an initializer instance from a dictionary
-
-        Parameters
-        ----------
-        initializer : dict
-
-        Returns
-        -------
-        init_instance : tf.keras.initializer.Initializer
+        init_instance : Initializer
+            An initializer instance with the __call__ function overloaded.
         init_str : str
             A string describing the initialiser returned 
         """
-        if str(initializer) == "None":
-            initializer = {"operator": "he_normal"}
+        if arguments is None:
+            arguments = {}
 
-        init_class, init_str = self._get_operator(initializers, initializer)
-        return init_class(None), init_str
+        initializer = get_initializer(operator)(**arguments)
+        return initializer, operator
 
     def _generate_activation(self, activation):
         """Generates an activation function from string.
@@ -385,6 +334,7 @@ class FCLayer(BaseLayer):
 class Conv2D(BaseLayer):
     """A standard convolutional layer.
     """
+
     def _build_layer(
         self,
         out_size,
@@ -459,7 +409,8 @@ class Conv2D(BaseLayer):
             "Normalization: {}\n".format(self._normalizer_str),
             "Input shape: {}\n".format(self.input.get_shape().as_list()),
             "Output shape: {}".format(self.output.get_shape().as_list()),
-        ) 
+        )
+
 
 class Upconv2D(BaseLayer):
     """A standard upconv layer (sometimes called deconv or transposed conv).
