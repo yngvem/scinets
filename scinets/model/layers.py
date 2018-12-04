@@ -4,7 +4,7 @@ __email__ = "yngve.m.moe@gmail.com"
 
 import tensorflow as tf
 import numpy as np
-from . import activations
+from .activations import get_activation
 from . import regularizers
 from . import normalizers
 from .initializers import get_initializer
@@ -49,6 +49,8 @@ class BaseLayer(ABC):
     ):
         if initializer is None:
             initializer = {}
+        if activation is None:
+            activation = {}
 
         if normalizer is None:
             normalizer = {}
@@ -63,7 +65,7 @@ class BaseLayer(ABC):
         self.scope = self._get_scope(scope)
 
         self.initializer, self._init_str = self._generate_initializer(**initializer)
-        self.activation, self._act_str = self._generate_activation(activation)
+        self.activation, self._act_str = self._generate_activation(**activation)
         self.regularizer, self._reg_str = self._generate_regularizer(regularizer)
         self.normalizer, self._normalizer_str = self._generate_normalizer(normalizer)
 
@@ -133,7 +135,7 @@ class BaseLayer(ABC):
         initializer = get_initializer(operator)(**arguments)
         return initializer, operator
 
-    def _generate_activation(self, activation):
+    def _generate_activation(self, operator='linear', arguments=None):
         """Generates an activation function from string.
 
         Parameters
@@ -148,9 +150,13 @@ class BaseLayer(ABC):
         act_str : str
             A string describing the initialiser returned 
         """
-        if str(activation) == "None":
-            activation = {"operator": "linear"}
-        return self._get_operator(activations, activation)
+        if arguments is None:
+            arguments = {}
+        activation_func = get_activation(operator)
+        def activation(*args, **kwargs):
+            return activation_func(*args, **kwargs, **arguments)
+        
+        return activation, operator
 
     def _generate_regularizer(self, regularizer):
         """Generates a regularizer from dictionary.
