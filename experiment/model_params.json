@@ -24,6 +24,10 @@
                     },
                     "initializer": {
                         "operator": "he_normal"
+                    },
+                    "regularizer": {
+                        "operator": "WeightDecay",
+                        "arguments": {"amount": 1}
                     }
                 },
                 {
