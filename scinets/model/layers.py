@@ -5,12 +5,12 @@ __email__ = "yngve.m.moe@gmail.com"
 import tensorflow as tf
 import numpy as np
 from .activations import get_activation
-from . import regularizers
+from .regularizers import get_regularizer
 from . import normalizers
 from .initializers import get_initializer
 from .._backend_utils import SubclassRegister
 from operator import itemgetter
-from abc import ABC
+from abc import ABC, abstractmethod
 
 
 _ver = [int(v) for v in tf.__version__.split(".")]
@@ -32,7 +32,6 @@ class BaseLayer(ABC):
     for verbose network building to be supported, the `_print_info` function
     must be overloaded.
     """
-
     def __init__(
         self,
         x,
@@ -51,6 +50,8 @@ class BaseLayer(ABC):
             initializer = {}
         if activation is None:
             activation = {}
+        if regularizer is None:
+            regularizer = {}
 
         if normalizer is None:
             normalizer = {}
@@ -66,7 +67,7 @@ class BaseLayer(ABC):
 
         self.initializer, self._init_str = self._generate_initializer(**initializer)
         self.activation, self._act_str = self._generate_activation(**activation)
-        self.regularizer, self._reg_str = self._generate_regularizer(regularizer)
+        self.regularizer, self._reg_str = self._generate_regularizer(**regularizer)
         self.normalizer, self._normalizer_str = self._generate_normalizer(normalizer)
 
         # Build layer
@@ -158,7 +159,7 @@ class BaseLayer(ABC):
         
         return activation, operator
 
-    def _generate_regularizer(self, regularizer):
+    def _generate_regularizer(self, operator=None, arguments=None):
         """Generates a regularizer from dictionary.
 
         The format of the dictionary is as follows
@@ -196,10 +197,12 @@ class BaseLayer(ABC):
         reg_str : str
             A string describing the initialiser returned 
         """
-        if str(regularizer) == "None" or regularizer == {}:
+        if str(operator) == "None":
             return None, "No regularization."
-        else:
-            return self._get_operator(regularizers, regularizer)
+
+        if arguments is None:
+            arguments = {}
+        return get_regularizer(operator)(**arguments), operator
 
     def _generate_normalizer(self, normalizer):
         """Generates a normalizer from dictionary.
@@ -262,6 +265,7 @@ class BaseLayer(ABC):
 
         return params, reg_list
 
+    @abstractmethod
     def _build_layer(activation, initalizer, regularizer):
         raise RuntimeError("This should be implemented")
 
@@ -269,6 +273,7 @@ class BaseLayer(ABC):
         self._print_info(layer_params)
         self._print_parameter_shapes()
 
+    @abstractmethod
     def _print_info(self, layer_params):
         raise RuntimeError("This should be implemented!")
 
