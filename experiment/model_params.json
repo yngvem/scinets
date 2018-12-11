@@ -17,13 +17,17 @@
                         "strides": 4
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
+                    },
+                    "regularizer": {
+                        "operator": "WeightDecay",
+                        "arguments": {"amount": 1}
                     }
                 },
                 {
@@ -35,10 +39,10 @@
                         "strides": 4
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -52,10 +56,10 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -69,10 +73,10 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -91,10 +95,10 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -113,10 +117,10 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -130,10 +134,10 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "sigmoid"
+                        "operator": "Sigmoid"
                     },
                     "initializer": {
                         "operator": "he_normal"

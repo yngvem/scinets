@@ -4,17 +4,27 @@ __email__ = "yngve.m.moe@gmail.com"
 
 import tensorflow as tf
 import numpy as np
-from . import activations
-from . import regularizers
-from . import normalizers
-from . import initializers
+from .activations import get_activation
+from .regularizers import get_regularizer
+from .normalizers import get_normalizer
+from .initializers import get_initializer
+from .._backend_utils import SubclassRegister
+from operator import itemgetter
+from abc import ABC, abstractmethod
 
 
 _ver = [int(v) for v in tf.__version__.split(".")]
 keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
 
 
-class BaseLayer:
+layer_register = SubclassRegister('layer')
+def get_layer(layer):
+    return layer_register.get_item(layer)
+
+
+
+@layer_register.link_base
+class BaseLayer(ABC):
     """Base class for all layers.
 
     To create new layers, one only needs to overload the `_build_layer`
@@ -22,7 +32,6 @@ class BaseLayer:
     for verbose network building to be supported, the `_print_info` function
     must be overloaded.
     """
-
     def __init__(
         self,
         x,
@@ -35,9 +44,18 @@ class BaseLayer:
         layer_params=None,
         verbose=False,
         *args,
-        **kwargs
+        **kwargs,
     ):
-        if normalizer is not None and is_training is None:
+        if initializer is None:
+            initializer = {}
+        if activation is None:
+            activation = {}
+        if regularizer is None:
+            regularizer = {}
+        if normalizer is None:
+            normalizer = {}
+
+        elif is_training is None:
             raise ValueError(
                 "You have to supply the `is_training` placeholder for batch norm."
             )
@@ -47,10 +65,10 @@ class BaseLayer:
         self.is_training = is_training
         self.scope = self._get_scope(scope)
 
-        self.initializer, self._init_str = self._generate_initializer(initializer)
-        self.activation, self._act_str = self._generate_activation(activation)
-        self.regularizer, self._reg_str = self._generate_regularizer(regularizer)
-        self.normalizer, self._normalizer_str = self._generate_normalizer(normalizer)
+        self.initializer, self._init_str = self._generate_initializer(**initializer)
+        self.activation, self._act_str = self._generate_activation(**activation)
+        self.regularizer, self._reg_str = self._generate_regularizer(**regularizer)
+        self.normalizer, self._normalizer_str = self._generate_normalizer(**normalizer)
 
         # Build layer
         with tf.variable_scope(scope) as self.vscope:
@@ -65,89 +83,33 @@ class BaseLayer:
             scope = type(self).__name__
         return scope
 
-    @staticmethod
-    def _get_operator(module, operator_dict):
-        """Use a dictionary specification and module to extract a tf operator.
+    def _generate_initializer(self, operator='he_normal', arguments=None):
+        """Generates a initializer from the operator name and argument dictionary.
 
-        Parameters
-        ----------
-        module : module
-            The module (name scope) to extract the operator from.
-        operator_dict : dict
-            Dictionary specifying the name of the operator and its arguments.
-
-        Returns
-        -------
-        str :
-            The name of the operator
-        function :
-            Function of one variable that applies the operator to its input.
-        """
-        operator_name = operator_dict["operator"]
-        operator_args = operator_dict.get("arguments", {})
-        operator = getattr(module, operator_name)
-
-        def operator_func(*args, **kwargs):
-            return operator(*args, **kwargs, **operator_args)
-
-        return operator_func, operator_name
-
-    def _generate_initializer(self, initializer):
-        """Generates a initializer from dictionary.
-
-        The format of the dictionary is as follows
-        ```
-            {
-                'operator': <initializer_name>,
-                'arguments': {
-                                 'arg1': <value_1>,
-                                 'arg2': <value_2>
-                             }
-            }
-        ```
-        thus, if you want to use gaussian initialization with a standard
-        deviation of 0.1, the dicitonary should look like this
-        ```
-            {
-                'operator': 'gaussian',
-                'arguments': {
-                                 'stddev': 0.1
-                             }
-            }
-        ```
         for a full description of all possible initializers and their
         parameters, see the `initializers.py` file.
 
         Parameters
         ----------
-        initializers : dict
-            What normalizer to use, see examples above.
+        operator : str
+            The name of the initializer class to use.
+        arguments : dict
+            The keyword arguments used when creating the initializer instance.
 
         Returns
         -------
-        normalizer_func : function
-        normalizer_str : str
-            A string describing the initialiser returned 
-        """
-        """Generates an initializer instance from a dictionary
-
-        Parameters
-        ----------
-        initializer : dict
-
-        Returns
-        -------
-        init_instance : tf.keras.initializer.Initializer
+        init_instance : Initializer
+            An initializer instance with the __call__ function overloaded.
         init_str : str
             A string describing the initialiser returned 
         """
-        if str(initializer) == "None":
-            initializer = {"operator": "he_normal"}
+        if arguments is None:
+            arguments = {}
 
-        init_class, init_str = self._get_operator(initializers, initializer)
-        return init_class(None), init_str
+        initializer = get_initializer(operator)(**arguments)
+        return initializer, operator
 
-    def _generate_activation(self, activation):
+    def _generate_activation(self, operator='Linear', arguments=None):
         """Generates an activation function from string.
 
         Parameters
@@ -162,35 +124,16 @@ class BaseLayer:
         act_str : str
             A string describing the initialiser returned 
         """
-        if str(activation) == "None":
-            activation = {"operator": "linear"}
-        return self._get_operator(activations, activation)
+        if arguments is None:
+            arguments = {}
+        activation = get_activation(operator)(**arguments)
+        
+        return activation, operator
 
-    def _generate_regularizer(self, regularizer):
+    def _generate_regularizer(self, operator=None, arguments=None):
         """Generates a regularizer from dictionary.
 
-        The format of the dictionary is as follows
-        ```
-            {
-                'operator': <operator_name>,
-                'arguments': {
-                                 'arg1': <value_1>,
-                                 'arg2': <value_2>
-                             }
-            }
-        ```
-        thus, if you want to use weight decay regularization with a 
-        regularization parameter of 0.2, the correct dictionary would look
-        like this
-        ```
-            {
-                'operator': 'weight_decay',
-                'arguments': {
-                                 'reg_param': 0.2,
-                             }
-            }
-        ```
-        for a full description of all possible regularizers and their
+        For a full description of all possible regularizers and their
         parameters, see the `regularizers.py` file.
 
         Parameters
@@ -204,31 +147,17 @@ class BaseLayer:
         reg_str : str
             A string describing the initialiser returned 
         """
-        if str(regularizer) == "None" or regularizer == {}:
+        if str(operator) == "None":
             return None, "No regularization."
-        else:
-            return self._get_operator(regularizers, regularizer)
 
-    def _generate_normalizer(self, normalizer):
+        if arguments is None:
+            arguments = {}
+        return get_regularizer(operator)(**arguments), operator
+
+    def _generate_normalizer(self, operator=None, arguments=None):
         """Generates a normalizer from dictionary.
 
-        The format of the dictionary is as follows
-        ```
-            {
-                'operator': <operator_name>,
-                'arguments': {
-                                 'arg1': <value_1>,
-                                 'arg2': <value_2>
-                             }
-            }
-        ```
-        thus, if you want to use batch normalization, the dicitonary
-        ```
-            {
-                'operator': 'batch_normalization'
-            }
-        ```
-        for a full description of all possible normalizers and their
+        For a full description of all possible normalizers and their
         parameters, see the `normalizers.py` file.
 
         Parameters
@@ -242,19 +171,21 @@ class BaseLayer:
         normalizer_str : str
             A string describing the initialiser returned 
         """
-        if str(normalizer) == "None" or normalizer == {}:
-
+        if str(operator) == "None":
             def normalizer(x, *args, **kwargs):
                 return x
 
             return normalizer, "No normalization"
-        else:
-            if str(self.is_training) == "None":
-                raise RuntimeError(
-                    "The `is_training` placeholder must be set if normalization "
-                    "is used."
-                )
-            return self._get_operator(normalizers, normalizer)
+        if arguments is None:
+            arguments = {}
+
+        if str(self.is_training) == "None":
+            raise RuntimeError(
+                "The `is_training` placeholder must be set if normalization "
+                "is used."
+            )
+        normalizer = get_normalizer(operator)(training=self.is_training, **arguments)
+        return normalizer, operator
 
     def _get_returns(self, scope):
         """Get the parameters to return from a layer
@@ -262,7 +193,7 @@ class BaseLayer:
         trainable = tf.get_collection(
             tf.GraphKeys.TRAINABLE_VARIABLES, scope=scope.name
         )
-        # TODO: FIX THIS SHIT!
+        # TODO: FIX THIS HACK!
         params = {var.name.split(scope.name)[-1][1:]: var for var in trainable}
         reg_list = tf.get_collection(
             tf.GraphKeys.REGULARIZATION_LOSSES, scope=scope.name
@@ -270,6 +201,7 @@ class BaseLayer:
 
         return params, reg_list
 
+    @abstractmethod
     def _build_layer(activation, initalizer, regularizer):
         raise RuntimeError("This should be implemented")
 
@@ -277,6 +209,7 @@ class BaseLayer:
         self._print_info(layer_params)
         self._print_parameter_shapes()
 
+    @abstractmethod
     def _print_info(self, layer_params):
         raise RuntimeError("This should be implemented!")
 
@@ -326,7 +259,7 @@ class FCLayer(BaseLayer):
             kernel_regularizer=self.regularizer,
         )
         out = self.activation(out)
-        out = self.normalizer(out, training=self.is_training, name="BN")
+        out = self.normalizer(out, name="BN")
 
         # Get variables
         return out
@@ -404,7 +337,7 @@ class Conv2D(BaseLayer):
             kernel_regularizer=self.regularizer,
         )
         out = self.activation(out)
-        out = self.normalizer(out, training=self.is_training, name="BN")
+        out = self.normalizer(out, name="BN")
 
         return out
 
@@ -472,7 +405,7 @@ class Upconv2D(BaseLayer):
             kernel_regularizer=self.regularizer,
         )
         out = self.activation(out)
-        out = self.normalizer(out, training=self.is_training, name="BN")
+        out = self.normalizer(out, name="BN")
 
         return out
 
@@ -584,7 +517,7 @@ class GlobalConvolutionalLayer(BaseLayer):
         )
         out = out1 + out2
         out = self.activation(out)
-        out = self.normalizer(out, training=self.is_training, name="BN")
+        out = self.normalizer(out, name="BN")
 
 
 class ResnetConv2D(BaseLayer):
@@ -648,7 +581,7 @@ class ResnetConv2D(BaseLayer):
     def _generate_residual_path(
         self, out_size, k_size=3, use_bias=True, dilation_rate=1, strides=1
     ):
-        res_path = self.normalizer(self.input, training=self.is_training, name="BN_1")
+        res_path = self.normalizer(self.input, name="BN_1")
 
         res_path = self.activation(res_path)
         res_path = tf.layers.conv2d(
@@ -664,7 +597,7 @@ class ResnetConv2D(BaseLayer):
             name="conv2d_1",
         )
 
-        res_path = self.normalizer(res_path, training=self.is_training, name="BN_2")
+        res_path = self.normalizer(res_path, name="BN_2")
         res_path = self.activation(res_path)
 
         res_path = tf.layers.conv2d(
@@ -774,7 +707,7 @@ class ResnetUpconv2D(ResnetConv2D):
         return out
 
     def _generate_residual_path(self, out_size, k_size=3, use_bias=True, strides=1):
-        res_path = self.normalizer(self.input, training=self.is_training, name="BN_1")
+        res_path = self.normalizer(self.input, name="BN_1")
         res_path = self.activation(res_path)
         res_path = tf.layers.conv2d(
             res_path,
@@ -786,7 +719,7 @@ class ResnetUpconv2D(ResnetConv2D):
             kernel_regularizer=self.regularizer,
             name="conv2d_1",
         )
-        res_path = self.normalizer(res_path, training=self.is_training, name="BN_2")
+        res_path = self.normalizer(res_path, name="BN_2")
         res_path = self.activation(res_path)
 
         res_path = tf.layers.conv2d_transpose(
@@ -850,7 +783,7 @@ class ResnetLKM2D(ResnetConv2D):
             padding=padding,
             kernel_regularizer=self.regularizer,
         )
-        out1 = self.normalizer(out1, training=self.is_training, name="Normalizer1_1")
+        out1 = self.normalizer(out1, name="Normalizer1_1")
         out1 = activation(out1)
         out1 = tf.layers.conv2d(
             out1,
@@ -863,7 +796,7 @@ class ResnetLKM2D(ResnetConv2D):
             padding=padding,
             kernel_regularizer=self.regularizer,
         )
-        out1 = self.normalizer(out1, training=self.is_training, name="Normalizer1_2")
+        out1 = self.normalizer(out1, name="Normalizer1_2")
         out1 = activation(out1)
 
         out2 = tf.layers.conv2d(
@@ -877,7 +810,7 @@ class ResnetLKM2D(ResnetConv2D):
             padding=padding,
             kernel_regularizer=self.regularizer,
         )
-        out1 = self.normalizer(out1, training=self.is_training, name="Normalizer2_1")
+        out1 = self.normalizer(out1, name="Normalizer2_1")
         out1 = activation(out1)
         out2 = tf.layers.conv2d(
             out2,
@@ -890,7 +823,7 @@ class ResnetLKM2D(ResnetConv2D):
             padding=padding,
             kernel_regularizer=self.regularizer,
         )
-        out1 = self.normalizer(out1, training=self.is_training, name="Normalizer2_2")
+        out1 = self.normalizer(out1, name="Normalizer2_2")
         out1 = activation(out1)
 
         out = tf.concat((out1, out2), axis=-1)
