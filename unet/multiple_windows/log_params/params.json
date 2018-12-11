@@ -34,8 +34,8 @@
                 "log_name": "PET",
                 "log_var": "input",
                 "log_type": "image",
-                "log_kwargs": {"max_outputs": 0,
-                               "channel": 1}
+                "log_kwargs": {"max_outputs": 1,
+                               "channel": 0}
             },
             {
                 "log_name": "CT_c70_w100",
@@ -52,11 +52,32 @@
                             "channel": 2}
             },
             {
-                "log_name": "CT_c70",
+                "log_name": "CT_c70_w500",
                 "log_var": "input",
                 "log_type": "image",
                 "log_kwargs": {"max_outputs": 1,
                             "channel": 3}
+            },
+            {
+                "log_name": "CT_c60_w100",
+                "log_var": "input",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs": 1,
+                            "channel": 4}
+            },
+            {
+                "log_name": "CT_c60_w200",
+                "log_var": "input",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs": 1,
+                            "channel": 5}
+            },
+            {
+                "log_name": "CT_c60_w500",
+                "log_var": "input",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs": 1,
+                            "channel": 6}
             },
             {
                 "log_name": "Probability_map",
