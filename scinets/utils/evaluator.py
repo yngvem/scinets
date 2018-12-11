@@ -63,8 +63,10 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
             self.false_positives = self._init_false_positives()
             self.false_negatives = self._init_false_negatives()
 
+            self.sensitivity = self._init_sensitivity()
+            self.specificity = self._init_specificity()
             self.precision = self._init_precision()
-            self.recall = self._init_recall()
+            self.recall = self.sensitivity
             self.dice = self._init_dice()
 
     def _init_num_elements(self):
@@ -79,7 +81,7 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
                 axis=tf.range(1, tf.rank(self.prediction)),
                 dtype=tf.float32,
             )
-            return true_positives / self.num_elements
+            return true_positives
 
     def _init_true_negatives(self):
         with tf.variable_scope("true_negatives"):
@@ -88,7 +90,7 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
                 axis=tf.range(1, tf.rank(self.prediction)),
                 dtype=tf.float32,
             )
-            return true_negatives / self.num_elements
+            return true_negatives
 
     def _init_false_positives(self):
         with tf.variable_scope("fasle_positives"):
@@ -97,7 +99,7 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
                 axis=tf.range(1, tf.rank(self.prediction)),
                 dtype=tf.float32,
             )
-            return false_positives / self.num_elements
+            return false_positives
 
     def _init_false_negatives(self):
         with tf.variable_scope("false_negatives"):
@@ -106,20 +108,24 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
                 axis=tf.range(1, tf.rank(self.prediction)),
                 dtype=tf.float32,
             )
-            return false_negatives / self.num_elements
+            return false_negatives
 
     def _init_precision(self):
         with tf.variable_scope("precision"):
-            return self.true_positives / (self.true_positives + self.false_positives)
+            return self.true_positives / (self.true_positives + self.false_positives + 1e-8)
 
-    def _init_recall(self):
-        with tf.variable_scope("recall"):
-            return self.true_positives / (self.true_positives + self.false_negatives)
+    def _init_sensitivity(self):
+        with tf.variable_scope("sensitivity"):
+            return self.true_positives / (self.true_positives + self.false_negatives + 1e-8)
+
+    def _init_specificity(self):
+        with tf.variable_scope("specificity"):
+            return self.true_negatives / (self.true_negatives + self.false_positives + 1e-8)
 
     def _init_dice(self):
         with tf.variable_scope("dice"):
             dice = (2 * self.true_positives) / (
-                2 * self.true_positives + self.false_negatives + self.false_positives
+                2 * self.true_positives + self.false_negatives + self.false_positives + 1e-8
             )
         return dice
 
