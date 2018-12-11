@@ -15,8 +15,8 @@ class BaseRegularizer:
     def _build_regularizer(self, x):
         pass
 
-    def __call__(self, x):
-        return self._build_regularizer(x)
+    def __call__(self, x, **kwargs):
+        return self._build_regularizer(x, **kwargs)
 
 
 class WeightDecay(BaseRegularizer):
