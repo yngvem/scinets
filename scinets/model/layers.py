@@ -136,7 +136,7 @@ class BaseLayer(ABC):
         initializer = get_initializer(operator)(**arguments)
         return initializer, operator
 
-    def _generate_activation(self, operator='linear', arguments=None):
+    def _generate_activation(self, operator='Linear', arguments=None):
         """Generates an activation function from string.
 
         Parameters
@@ -153,9 +153,7 @@ class BaseLayer(ABC):
         """
         if arguments is None:
             arguments = {}
-        activation_func = get_activation(operator)
-        def activation(*args, **kwargs):
-            return activation_func(*args, **kwargs, **arguments)
+        activation = get_activation(operator)(**arguments)
         
         return activation, operator
 
