@@ -2,7 +2,6 @@
     "val_log_frequency": 100,
     "evaluator": "BinaryClassificationEvaluator",
     "tb_params": {
-        "log_all_params": false,
         "log_dicts": [
             {
                 "log_name": "Loss",
