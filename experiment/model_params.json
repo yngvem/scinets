@@ -17,7 +17,7 @@
                         "strides": 4
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
                         "operator": "RElU"
@@ -39,7 +39,7 @@
                         "strides": 4
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
                         "operator": "RElU"
@@ -56,7 +56,7 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
                         "operator": "RElU"
@@ -73,7 +73,7 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
                         "operator": "RElU"
@@ -95,7 +95,7 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
                         "operator": "RElU"
@@ -117,7 +117,7 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
                         "operator": "RElU"
@@ -134,7 +134,7 @@
                         "k_size": 3
                     },
                     "normalizer": {
-                        "operator": "batch_normalization"
+                        "operator": "BatchNormalization"
                     },
                     "activation": {
                         "operator": "Sigmoid"
