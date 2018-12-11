@@ -20,7 +20,7 @@
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -42,7 +42,7 @@
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -59,7 +59,7 @@
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -76,7 +76,7 @@
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -98,7 +98,7 @@
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -120,7 +120,7 @@
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "relu"
+                        "operator": "RElU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -137,7 +137,7 @@
                         "operator": "batch_normalization"
                     },
                     "activation": {
-                        "operator": "sigmoid"
+                        "operator": "Sigmoid"
                     },
                     "initializer": {
                         "operator": "he_normal"
