@@ -6,6 +6,5 @@
             "operator": "MultipleHoundsfieldWindowsPreprocessor",
             "arguments": {"window_centers": [70, 70, 70, 60, 60, 60],
                             "window_widths": [100, 200, 500, 100, 200, 500]}
-        }
     }
 }
