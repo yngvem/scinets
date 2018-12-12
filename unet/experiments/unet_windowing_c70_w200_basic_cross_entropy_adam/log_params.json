@@ -1,0 +1,125 @@
+{
+    "val_log_frequency": 100,
+    "evaluator": "BinaryClassificationEvaluator",
+    "tb_params": {
+        "log_dicts": [
+            {
+                "log_name": "Loss",
+                "log_var": "loss",
+                "log_type": "scalar"
+            },
+            {
+                "log_name": "Probability_map",
+                "log_var":"probabilities",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs":1}
+            },
+            {
+                "log_name": "Accuracy",
+                "log_var": "accuracy",
+                "log_type": "scalar"
+            },
+            {
+                "log_name": "Dice",
+                "log_var": "dice",
+                "log_type": "scalar"
+            },
+            {
+                "log_name": "Mask",
+                "log_var": "true_out",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs":1}
+            },
+            {
+                "log_name": "PET",
+                "log_var": "input",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs": 1,
+                               "channel": 0}
+            },
+            {
+                "log_name": "CT_c70_w200",
+                "log_var": "input",
+                "log_type": "image",
+                "log_kwargs": {"max_outputs": 1,
+                            "channel": 1}
+            },
+            {
+                "log_name": "Probability_map",
+                "log_var":"probabilities",
+                "log_type": "histogram"
+            },
+            {
+                "log_name": "Precision",
+                "log_var": "precision",
+                "log_type": "scalar"
+            },
+            {
+                "log_name": "Recall",
+                "log_var": "recall",
+                "log_type": "scalar"
+            },
+            {
+                "log_name": "true positives",
+                "log_var": "true_positives",
+                "log_type": "scalar"
+            },
+            {
+                "log_name": "true negatives",
+                "log_var": "true_negatives",
+                "log_type": "scalar"
+            }
+        ]
+    },
+    "sacred_params": {
+        "log_dicts": [
+            {
+                "log_name": "Loss",
+                "log_var": "loss"
+            },
+            {
+                "log_name": "Accuracy",
+                "log_var": "accuracy"
+            },
+            {
+                "log_name": "Dice",
+                "log_var": "dice"
+            },
+            {
+                "log_name": "Precision",
+                "log_var": "precision"
+            },
+            {
+                "log_name": "Recall",
+                "log_var": "recall"
+            }
+        ]
+    },
+    "h5_params": {
+        "log_dicts": [
+            {
+                "log_name": "Loss",
+                "log_var": "loss"
+            },
+            {
+                "log_name": "Accuracy",
+                "log_var": "accuracy"
+            },
+            {
+                "log_name": "Dice",
+                "log_var": "dice"
+            },
+            {
+                "log_name": "precision",
+                "log_var": "precision"
+            },
+            {
+                "log_name": "recall",
+                "log_var": "recall"
+            }
+        ]
+    },
+    "network_tester": {
+        "metrics": ["dice", "true_positives", "true_negatives", "precision", "recall"]
+    }
+}
