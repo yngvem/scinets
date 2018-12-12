@@ -30,7 +30,7 @@ class ClassificationEvaluator:
     def _init_probabilities(self):
         if "activation" in self.network.architecture[-1]:
             final_activation = self.network.architecture[-1]["activation"]
-            if final_activation["operator"] == "sigmoid":
+            if final_activation["operator"] == "Sigmoid":
                 return self.out
 
         with tf.variable_scope("probabilities"):
