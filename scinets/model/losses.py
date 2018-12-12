@@ -37,7 +37,7 @@ def binary_f_beta(prediction, target, beta=1, name="binary_dice_loss"):
         true_positive = tf.reduce_sum(prediction * target, axis=reduce_ax)
         target_positive = tf.reduce_sum(tf.square(target), axis=reduce_ax)
         predicted_positive = tf.reduce_sum(tf.square(prediction), axis=reduce_ax)
-        dice_numerator = (1 + beta ** 2) * true_positive
+        dice_numerator = (1 + beta ** 2) * true_positive + eps
         dice_denominator = (beta ** 2) * target_positive + predicted_positive + eps
 
         return 1 - dice_numerator / dice_denominator
