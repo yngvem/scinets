@@ -17,10 +17,11 @@ _ver = [int(v) for v in tf.__version__.split(".")]
 keras = tf.keras if _ver[0] >= 1 and _ver[1] >= 4 else tf.contrib.keras
 
 
-layer_register = SubclassRegister('layer')
+layer_register = SubclassRegister("layer")
+
+
 def get_layer(layer):
     return layer_register.get_item(layer)
-
 
 
 @layer_register.link_base
@@ -32,6 +33,7 @@ class BaseLayer(ABC):
     for verbose network building to be supported, the `_print_info` function
     must be overloaded.
     """
+
     def __init__(
         self,
         x,
@@ -83,7 +85,7 @@ class BaseLayer(ABC):
             scope = type(self).__name__
         return scope
 
-    def _generate_initializer(self, operator='he_normal', arguments=None):
+    def _generate_initializer(self, operator="he_normal", arguments=None):
         """Generates a initializer from the operator name and argument dictionary.
 
         for a full description of all possible initializers and their
@@ -109,7 +111,7 @@ class BaseLayer(ABC):
         initializer = get_initializer(operator)(**arguments)
         return initializer, operator
 
-    def _generate_activation(self, operator='Linear', arguments=None):
+    def _generate_activation(self, operator="Linear", arguments=None):
         """Generates an activation function from string.
 
         Parameters
@@ -127,7 +129,7 @@ class BaseLayer(ABC):
         if arguments is None:
             arguments = {}
         activation = get_activation(operator)(**arguments)
-        
+
         return activation, operator
 
     def _generate_regularizer(self, operator=None, arguments=None):
@@ -172,6 +174,7 @@ class BaseLayer(ABC):
             A string describing the initialiser returned 
         """
         if str(operator) == "None":
+
             def normalizer(x, *args, **kwargs):
                 return x
 
@@ -181,8 +184,7 @@ class BaseLayer(ABC):
 
         if str(self.is_training) == "None":
             raise RuntimeError(
-                "The `is_training` placeholder must be set if normalization "
-                "is used."
+                "The `is_training` placeholder must be set if normalization " "is used."
             )
         normalizer = get_normalizer(operator)(training=self.is_training, **arguments)
         return normalizer, operator
@@ -528,6 +530,7 @@ class ResnetConv2D(BaseLayer):
         use_bias=True,
         dilation_rate=1,
         strides=1,
+        normalize_skip_connection=False,
         verbose=False,
     ):
         """
@@ -571,7 +574,9 @@ class ResnetConv2D(BaseLayer):
             out_size, k_size, use_bias, dilation_rate, strides
         )
 
-        skip = self._generate_skip_connection(out_size, strides)
+        skip = self._generate_skip_connection(
+            out_size, strides, normalize_skip_connection=normalize_skip_connection
+        )
 
         # Compute ResNet output
         out = skip + res_path
@@ -613,10 +618,12 @@ class ResnetConv2D(BaseLayer):
 
         return res_path
 
-    def _generate_skip_connection(self, out_size, strides):
+    def _generate_skip_connection(
+        self, out_size, strides=1, normalize_skip_connection=False
+    ):
         shape = self.input.get_shape().as_list()
         if out_size != shape[-1]:
-            return tf.layers.conv2d(
+            skip = tf.layers.conv2d(
                 self.input,
                 out_size,
                 kernel_size=1,
@@ -627,6 +634,9 @@ class ResnetConv2D(BaseLayer):
                 kernel_regularizer=self.regularizer,
                 name="conv2d_skip",
             )
+            if normalize_skip_connection:
+                skip = self.normalizer(skip, name="BN_SKIP")
+            return skip
         elif strides != 1:
             if isinstance(strides, int):
                 new_shape = np.ceil([shape[1] / strides, shape[2] / strides])
@@ -662,7 +672,15 @@ class ResnetConv2D(BaseLayer):
 
 
 class ResnetUpconv2D(ResnetConv2D):
-    def _build_layer(self, out_size, k_size=3, use_bias=True, strides=1, verbose=False):
+    def _build_layer(
+        self,
+        out_size,
+        k_size=3,
+        use_bias=True,
+        strides=1,
+        normalize_skip_connection=False,
+        verbose=False,
+    ):
         """
         Creates an imporved ResNet layer as described in [1]
 
@@ -700,7 +718,9 @@ class ResnetUpconv2D(ResnetConv2D):
         res_path = self._generate_residual_path(
             out_size=out_size, k_size=k_size, use_bias=use_bias, strides=strides
         )
-        skip = self._generate_skip_connection(out_size, strides)
+        skip = self._generate_skip_connection(
+            out_size, strides, normalize_skip_connection=normalize_skip_connection
+        )
 
         # Compute ResNet output
         out = skip + res_path
@@ -735,9 +755,12 @@ class ResnetUpconv2D(ResnetConv2D):
 
         return res_path
 
-    def _generate_skip_connection(self, out_size, strides=1):
+    def _generate_skip_connection(
+        self, out_size, strides=1, normalize_skip_connection=False
+    ):
         if isinstance(strides, int):
             strides = [strides, strides]
+
         skip = self.input
         shape = skip.get_shape().as_list()
         new_size = [shape[1] * strides[0], shape[2] * strides[1]]
@@ -752,9 +775,17 @@ class ResnetUpconv2D(ResnetConv2D):
                 kernel_regularizer=self.regularizer,
                 name="conv2d_skip",
             )
-        return tf.image.resize_images(
-            skip, new_size, align_corners=True, method=tf.image.ResizeMethod.BILINEAR
-        )
+            if normalize_skip_connection:
+                skip = self.normalizer(skip, name="BN_SKIP")
+        if new_size != [shape[1], shape[2]]:
+            skip = tf.image.resize_images(
+                skip,
+                new_size,
+                align_corners=True,
+                method=tf.image.ResizeMethod.BILINEAR,
+            )
+
+        return skip
 
 
 class ResnetLKM2D(ResnetConv2D):
