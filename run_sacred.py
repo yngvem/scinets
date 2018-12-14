@@ -125,6 +125,7 @@ if __name__ == "__main__":
             )
             print(f" This result was achieved at iteration {best_it}")
             print(80 * "=")
+            final_result = result
 
             evaluation_results = experiment.evaluate_model("val", best_it)
             print(f'{" All evaluation metrics at best iteration ":=^80s}')
@@ -135,6 +136,6 @@ if __name__ == "__main__":
                 )
             print(80 * "=")
 
-            return result
+            return final_result
 
     ex.run()

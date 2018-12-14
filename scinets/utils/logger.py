@@ -705,4 +705,4 @@ class SacredLogger(BaseLogger):
                 s = np.mean(s)
                 if np.isnan(s):
                     s = -1
-            _run.log_scalar(name, s, it_num)
+                _run.log_scalar(name, s, it_num)

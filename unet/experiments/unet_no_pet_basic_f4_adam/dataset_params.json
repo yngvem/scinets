@@ -1,0 +1,9 @@
+{
+    "data_path": "/dataset/val_split_2d.h5",
+    "batch_size": [16, 128, 128],
+    "val_group": "val",
+    "preprocessor": {
+            "operator": "ChannelRemoverPreprocessor",
+            "arguments": {"channel": 1}
+    }
+}
