@@ -111,14 +111,16 @@ class SubclassRegister(BaseRegister):
                 "Cannot link the same register with two different base classes"
             )
 
+        old_init_subclass = cls.__init_subclass__
         @classmethod
-        def init_subclass(cls_):
+        def init_subclass(cls_, *args, **kwargs):
             name = cls_.__name__
             if name in self.register:
                 raise ValueError(
                     f"Cannot create two {self.class_name}s with the same name."
                 )
             self.add_item(name, cls_)
+            return old_init_subclass(*args, **kwargs)
 
         self.linked_base = cls
         cls.__init_subclass__ = init_subclass
