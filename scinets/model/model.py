@@ -11,10 +11,11 @@ from copy import copy
 import tensorflow as tf
 import math as m
 from . import layers
-from . import losses
+from .losses import get_loss
+from abc import ABC, abstractmethod
 
 
-class BaseModel:
+class BaseModel(ABC):
     def __init__(
         self,
         input_var,
@@ -23,7 +24,6 @@ class BaseModel:
         is_training=None,
         true_out=None,
         loss_function=None,
-        loss_kwargs=None,
         verbose=False,
     ):
         """
@@ -39,15 +39,12 @@ class BaseModel:
             Variable used to specify wether the net is training or not. For 
             example used in batch normalisation and stochastic depth. 
             A placeholder will be generated for this if it is not provided.
-        true_out : tf.Variable (optional)
+        true_out : tf.Variable
             The wanted output of the network for the given input.
-        loss_function : str (optional)
-            The name of the loss function used during training. Must be the name
-            of a function in the `segmentation_nets.model.losses` file.
-        loss_kwargs : dict (optional)
-            Keyword arguments to supply to the loss function.
-        device : str (optional)
-            Used to force which device the network should be placed on.
+        loss_function : dict
+            Dictionary with the keys `operator` and `arguments` (optional). The values
+            are a string with the name of the loss function and a kwargs dictionary
+            to be supplied with the loss function, respectively.
         verbose : bool (optional)
             Used to specify if information about the networkshould be printed to
             the terminal window.
@@ -76,7 +73,7 @@ class BaseModel:
 
         # Set loss function
         if true_out is not None and loss_function is not None:
-            self.set_loss(true_out, loss_function, loss_kwargs=loss_kwargs)
+            self.set_loss(true_out, loss_function)
 
     def set_loss(self, true_out, loss_function, loss_kwargs=None, **kwargs):
         """
@@ -86,23 +83,26 @@ class BaseModel:
         ----------
         true_output : tf.Tensor
             Tensor containing the true labels
-        loss_function : str
-            Name of loss function, must be name of a function in the `losses.py`
-            file.
-        loss_kwargs : dict (optional)
-            Keyword arguments for the loss function.
+        loss_function : dict
+            Dictionary with the keys `operator` and `arguments` (optional). The values
+            are a string with the name of the loss function and a kwargs dictionary
+            to be supplied with the loss function, respectively.
         """
-        self.true_out = true_out
-        loss_kwargs = loss_kwargs if loss_kwargs is not None else {}
+        arguments = {}
+        if "arguments" in loss_function:
+            arguments = loss_function["arguments"]
 
-        loss_function = getattr(losses, loss_function)
+        if "name" not in arguments:
+            arguments["name"] = "loss_function"
+
+
+        loss_function = get_loss(loss_function["operator"])(**arguments)
         with tf.variable_scope(self.name + "/loss"):
             uregularised_loss = tf.reduce_mean(
-                loss_function(prediction=self.out, target=self.true_out, **loss_kwargs),
-                name="loss_function",
+                loss_function(prediction=self.out, target=self.true_out)
             )
 
-            self.loss = tf.add(uregularised_loss, self.reg_op, name="regularised_Loss")
+            self.loss = tf.add(uregularised_loss, self.reg_op, name="regularised_loss")
 
     def collect_regularizers(self):
         """Combine all the regularizer lists into one operator.
@@ -115,7 +115,8 @@ class BaseModel:
         if len(self.reg_list) > 0:
             self.reg_op = tf.add_n(self.reg_list, name="regularizers")
 
-    def buil_model(self):
+    @abstractmethod
+    def build_model(self):
         pass
 
     def assemble_layer(self, layer_dict):
@@ -161,7 +162,6 @@ class UNet(BaseModel):
         is_training=None,
         true_out=None,
         loss_function=None,
-        loss_kwargs=None,
         verbose=False,
     ):
         self.skip_connections = skip_connections
@@ -172,7 +172,6 @@ class UNet(BaseModel):
             is_training=is_training,
             true_out=true_out,
             loss_function=loss_function,
-            loss_kwargs=loss_kwargs,
             verbose=verbose,
         )
 
