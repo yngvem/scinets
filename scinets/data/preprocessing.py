@@ -8,9 +8,38 @@ __email__ = "yngve.m.moe@gmail.com"
 
 
 import numpy as np
+from .._backend_utils import SubclassRegister
+from abc import ABC, abstractmethod
 
 
-class Preprocessor:
+preprocessor_register = SubclassRegister('Preprocessor')
+def get_preprocessor(preprocessor):
+    return preprocessor_register.get_item(preprocessor)
+
+
+@preprocessor_register.link_base
+class BasePreprocessor(ABC):
+    @abstractmethod
+    def __call__(self, images, targets):
+        """The function being applied to the input images.
+        """
+        pass
+
+    @abstractmethod
+    def output_channels(self, input_channels):
+        """The number of output channels as a function of input channels.
+        """
+        pass
+
+    @abstractmethod
+    def output_targets(self, input_targets):
+        """The number of output channels as a function of input channels.
+        """
+        pass
+
+
+
+class Preprocessor(BasePreprocessor):
     """Superclass for all preprocessors. Does nothing.
     """
 
@@ -39,7 +68,7 @@ class PreprocessingPipeline(Preprocessor):
 
     def __init__(self, preprocessor_dicts):
         def get_operator(preprocessor_dict):
-            preprocessor = globals()[preprocessor_dict["operator"]]
+            get_preprocessor(preprocessor_dict["operator"])
             return preprocessor(**preprocessor_dict["arguments"])
 
         self.preprocessors = [

@@ -11,7 +11,7 @@ import h5py
 import tensorflow as tf
 from contextlib import contextmanager
 from tensorflow.examples.tutorials.mnist import input_data
-from . import preprocessing
+from .preprocessing import get_preprocessor
 from .._backend_utils import SubclassRegister
 from abc import ABC, abstractmethod, abstractproperty
 
@@ -77,7 +77,7 @@ class BaseDataReader(ABC):
         elif isinstance(preprocessor, dict):
             operator = preprocessor["operator"]
             kwargs = preprocessor.get("arguments", {})
-            return getattr(preprocessing, operator)(**kwargs)
+            return get_preprocessor(operator)(**kwargs)
         else:
             raise ValueError("`preprocess` must be either `None` or a dict")
 
