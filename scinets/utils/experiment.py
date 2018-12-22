@@ -7,7 +7,7 @@ from ..model import model
 from ..trainer import NetworkTrainer
 from ..utils import TensorboardLogger, SacredLogger, HDF5Logger
 from ..utils import evaluator
-from ..data import HDFDataset, MNISTDataset
+from ..data import get_dataset
 
 
 class NetworkExperiment:
@@ -144,7 +144,8 @@ class NetworkExperiment:
         return (self.log_dir / name).is_dir()
 
     def _get_dataset(self, dataset_params):
-        dataset = HDFDataset(**dataset_params)
+        Dataset = get_dataset(dataset_params["operator"])
+        dataset = Dataset(**dataset_params["arguments"])
         epoch_size = len(dataset.train_data_reader)
         return dataset, epoch_size
 
@@ -487,6 +488,8 @@ class MNISTExperiment(NetworkExperiment):
         trainer_params,
         log_params,
     ):
+
+        from ..data import MNISTDataset
 
         # Set experiment properties
         self.log_dir = self._get_logdir(experiment_params)
