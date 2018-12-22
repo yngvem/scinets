@@ -14,15 +14,20 @@ class Preprocessor:
     """Superclass for all preprocessors. Does nothing.
     """
 
-    def __call__(self, images):
+    def __call__(self, images, targets):
         """The function being applied to the input images.
         """
-        return images
+        return images, targets
 
     def output_channels(self, input_channels):
         """The number of output channels as a function of input channels.
         """
         return input_channels
+
+    def output_targets(self, input_targets):
+        """The number of output channels as a function of input channels.
+        """
+        return input_targets
 
 
 class PreprocessingPipeline(Preprocessor):
@@ -41,10 +46,10 @@ class PreprocessingPipeline(Preprocessor):
             get_operator(preprocessor_dict) for preprocessor_dict in preprocessor_dicts
         ]
 
-    def __call__(self, images):
+    def __call__(self, images, targets):
         for preprocessor in self.preprocessors:
-            images = preprocessor(images)
-        return images
+            images, targets = preprocessor(images, targets)
+        return images, targets
 
     def output_channels(self, input_channels):
         output_channels = input_channels
@@ -52,13 +57,21 @@ class PreprocessingPipeline(Preprocessor):
             output_channels = preprocessor.output_channels(output_channels)
         return output_channels
 
+    def output_targets(self, input_targets):
+        output_targets = input_targets
+        for preprocessor in self.preprocessors:
+            output_targets = preprocessor.output_targets(output_targets)
+        return output_targets
+
 
 class ChannelRemoverPreprocessor(Preprocessor):
+    """Used to remove a single channel from the inputs.
+    """
     def __init__(self, channel):
         self.unwanted_channel = channel
 
-    def __call__(self, images):
-        return np.delete(images, self.unwanted_channel, axis=-1)
+    def __call__(self, images, targets):
+        return np.delete(images, self.unwanted_channel, axis=-1), targets
 
     def output_channels(self, input_channels):
         return input_channels - 1
@@ -78,10 +91,10 @@ class WindowingPreprocessor(Preprocessor):
         image[image > self.window_width / 2] = self.window_width / 2
         return image
 
-    def __call__(self, images):
+    def __call__(self, images, targets):
         images = images.copy()
         images[..., self.channel] = self.perform_windowing(images[..., self.channel])
-        return images
+        return images, targets
 
 
 class MultipleWindowsPreprocessor(WindowingPreprocessor):
@@ -103,13 +116,13 @@ class MultipleWindowsPreprocessor(WindowingPreprocessor):
 
         return np.stack(new_channels, axis=-1)
 
-    def __call__(self, images):
+    def __call__(self, images, targets):
         new_channels = self.generate_all_windows(images)
 
         # Replace current CT channel with all windowed versions
         images = np.delete(images, self.channel, axis=-1)
         images = np.concatenate((images, new_channels), axis=-1)
-        return images
+        return images, targets
 
     def output_channels(self, input_channels):
         return input_channels + len(self.window_widths) - 1

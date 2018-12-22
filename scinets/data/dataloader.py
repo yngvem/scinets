@@ -12,9 +12,135 @@ import tensorflow as tf
 from contextlib import contextmanager
 from tensorflow.examples.tutorials.mnist import input_data
 from ..data import preprocessing
+from abc import ABC, abstractmethod, abstractproperty
 
 
-class HDFData:
+class BaseDataReader(ABC):
+    """Wrapper for a dataset that can be accessed by indexes.
+    """
+
+    def __init__(self, batch_size, prefetch, preprocessor, name):
+        """
+        Parameters:
+        -----------
+        batch_size : int
+        group : str
+            Internal path to the h5 group where the data is.
+        dataset : str
+            Name of the h5 dataset which contains the data points.
+        target : str
+            Name of the h5 dataset which contains the labels (or whichever
+            output that is wanted from the network).
+        prefetch : int
+            Number of batches to load at the same time as a training step is
+            performed. Used to reduce waiting time between training steps.
+        """
+        self.batch_size = batch_size
+        self.prefetch = prefetch
+        self.preprocessor = self._get_preprocessor(preprocessor)
+
+        # The order in which the samples was drawn
+        self.trained_order = []
+
+        # Get the shapes of the input and output data
+        self._len, self._data_shape, self._target_shape = self.get_shapes()
+
+        with tf.variable_scope(name):
+            self.tf_iterator = self._get_tf_iterator()
+            self.initializer = self.tf_iterator.initializer
+            self._next_el_op = self.tf_iterator.get_next()
+
+    @property
+    def data_shape(self):
+        """Return the output shape of this dataset after preprocessing.
+        """
+        channels = self._data_shape[-1]
+        output_channels = self.preprocessor.output_channels(channels)
+        return (*self._data_shape[:-1], output_channels)
+
+    @property
+    def target_shape(self):
+        """Return the target shape of this dataset after preprocessing.
+        """
+        targets = self._target_shape[-1]
+        output_targets = self.preprocessor.output_targets(targets)
+        return (*self._target_shape[:-1], output_targets)
+
+    def __len__(self):
+        return self._len
+
+    @staticmethod
+    def _get_preprocessor(preprocessor):
+        if preprocessor is None:
+            return preprocessing.Preprocessor()
+        elif isinstance(preprocessor, dict):
+            operator = preprocessor["operator"]
+            kwargs = preprocessor.get("arguments", {})
+            return getattr(preprocessing, operator)(**kwargs)
+        else:
+            raise ValueError("`preprocess` must be either `None` or a dict")
+
+    @abstractmethod
+    def _iterate_dataset_randomly(self):
+        """A generator that iterates through the dataset in a random order.
+
+        No preprocessing is performed here.
+
+        Yields:
+        -------
+        int : index of the currently yielded datapoint
+        input : The input to the neural network
+        target : The target to the neural network.
+        """
+        pass
+
+    def iterate_dataset_randomly(self):
+        """A generator that iterates through the dataset in a random order.
+
+        Yields a tuple containing a single index, data point and target.
+        """
+        for idx, input_, target in self._iterate_dataset_randomly():
+            yield (idx, *self.preprocessor(input_, target))
+
+    def _get_tf_iterator(self):
+        """Returns an initializable TensorFlow iterator that iterates the dataset.
+        """
+        output_types = (tf.int16, tf.float32, tf.float32)
+        output_shapes = ([], self.data_shape, self.target_shape)
+
+        tf_dataset = (
+            tf.data.Dataset.from_generator(
+                generator=self.iterate_dataset_randomly,
+                output_types=output_types,
+                output_shapes=output_shapes,
+            )
+            .repeat()
+            .batch(self.batch_size)
+            .prefetch(self.prefetch)
+        )
+
+        return tf_dataset.make_initializable_iterator()
+
+    @property
+    def idxes(self):
+        """The indices of the current image batch.
+        """
+        return self._next_el_op[0]
+
+    @property
+    def images(self):
+        """The tensorflow operator to get the current image batch.
+        """
+        return self._next_el_op[1]
+
+    @property
+    def targets(self):
+        """The Tensorflow operator to get the current batch of masks.
+        """
+        return self._next_el_op[2]
+
+
+class HDFData(BaseDataReader):
     """Wrapper for HDF5 files for tensorflow. Creates a Tensorflow dataset.
     """
 
@@ -26,7 +152,6 @@ class HDFData:
         dataset="images",
         target="masks",
         prefetch=1,
-        keep_in_ram=False,
         preprocessor=None,
         name="data_reader",
     ):
@@ -50,43 +175,37 @@ class HDFData:
         prefetch : int
             Number of batches to load at the same time as a training step is
             performed. Used to reduce waiting time between training steps.
-        keep_in_ram : bool
-            If true, the whole dataset will be loaded to RAM.
         preprocessor : str or None
             The preproccesing method to use. Must be an element of the
             `scinets.data.preprocessor` module.
         """
         group = group if group[0] == "/" else "/" + group
 
-        self.data_path = str(data_path)
-        self.group = group
-        self.data_name = dataset
-        self.target_name = target
-        self.keep_in_ram = keep_in_ram
-        self.batch_size = batch_size
-        self.prefetch = prefetch
-        self.preprocessor = self._get_preprocessor(preprocessor)
-
-        # The order in which the samples was drawn
-        self.trained_order = []
-
-        # Get the shapes of the input and output data
-        with h5py.File(data_path) as h5:
-            g = h5[self.group]
-            self._len = g[dataset].shape[0]
-            self.h5_shape = self._get_dataset_shape(g, dataset)
-            self.target_shape = self._get_dataset_shape(g, target)
-
-        if keep_in_ram:
-            self.data_dict = self._extract_dataset_as_dict()
+        self.data_path, self.group = data_path, group
+        self.data_name, self.target_name = dataset, target
 
         # Get tensorflow dataset and related objects
-        with tf.variable_scope(name):
-            self.tf_iterator = self._get_tf_iterator()
-            self.initializer = self.tf_iterator.initializer
-            self._next_el_op = self.tf_iterator.get_next()
+        super().__init__(
+            batch_size=batch_size,
+            prefetch=prefetch,
+            preprocessor=preprocessor,
+            name=name,
+        )
 
-    def _get_dataset_shape(self, h5, name):
+    @property
+    def h5_shape(self):
+        return self._data_shape
+
+    def get_shapes(self):
+        with h5py.File(self.data_path) as h5:
+            g = h5[self.group]
+            _len = g[self.data_name].shape[0]
+            h5_shape = self._get_hdf5_dataset_shape(g, self.data_name)
+            target_shape = self._get_hdf5_dataset_shape(g, self.target_name)
+
+        return _len, h5_shape, target_shape
+
+    def _get_hdf5_dataset_shape(self, h5, name):
         """Return the shape of the h5 dataset.
         """
         g = h5[self.group]
@@ -95,32 +214,7 @@ class HDFData:
         else:
             return tuple(g[name].shape[1:])
 
-    @property
-    def data_shape(self):
-        """Return the output shape of this dataset after preprocessing.
-        """
-        channels = self.h5_shape[-1]
-        output_channels = self.preprocessor.output_channels(channels)
-        return (*self.h5_shape[:-1], output_channels)
-
-    def _get_tf_iterator(self):
-        output_types = (tf.int16, tf.float32, tf.float32)
-        output_shapes = ([], self.data_shape, self.target_shape)
-
-        tf_dataset = (
-            tf.data.Dataset.from_generator(
-                generator=self.iterate_dataset_randomly,
-                output_types=output_types,
-                output_shapes=output_shapes,
-            )
-            .repeat()
-            .batch(self.batch_size)
-            .prefetch(self.prefetch)
-        )
-
-        return tf_dataset.make_initializable_iterator()
-
-    def _get_image_and_target(self, idx, h5):
+    def _get_input_and_target(self, idx, h5):
         """Extract the input and output data of given index from a HDF5 file.
 
         Parameters:
@@ -141,186 +235,16 @@ class HDFData:
 
         return image, target
 
-    def iterate_dataset_randomly(self):
-        """Iterates through the dataset in random order
-        """
-        if self.keep_in_ram:
-            yield from self._iterate_dataset_randomly(self.data_dict)
-        else:
-            with h5py.File(self.data_path, "r") as h5:
-                yield from self._iterate_dataset_randomly(h5)
-
-    @staticmethod
-    def _get_preprocessor(preprocessor):
-        if preprocessor is None:
-            return preprocessing.Preprocessor()
-        elif isinstance(preprocessor, dict):
-            operator = preprocessor["operator"]
-            kwargs = preprocessor.get("arguments", {})
-            return getattr(preprocessing, operator)(**kwargs)
-        elif callable(preprocessor):
-            return preprocessor
-        else:
-            raise ValueError("`preprocess` must be either `None` or a dict")
-
-    def _iterate_dataset_randomly(self, dataset, preprocess=None):
+    def _iterate_dataset_randomly(self):
         idxes = np.arange(len(self))
         np.random.shuffle(idxes)
-        for idx in idxes:
-            image, target = self._get_image_and_target(idx, dataset)
-            yield idx, self.preprocessor(image), target
-
-    def _extract_dataset_as_dict(self):
-        """Returns a dictionary of numpy arrays that contain the dataset.
-
-        The returned dictionary has one key, which is equal to the group name.
-        The value of this key is again another dictionary with two key-value 
-        paris, one for the input data and one for the targets.
-
-        Returns:
-        --------
-        dict :
-            Dictionary containing the contents of the specified HDF5 group.
-        """
-        group_dict = {}
         with h5py.File(self.data_path, "r") as h5:
-            group = h5[self.group]
-
-            images = group[self.data_name][:]
-            group_dict[self.data_name] = images.reshape(-1, *self.h5_shape)
-
-            targets = group[self.target_name][:]
-            group_dict[self.target_name] = targets.reshape(-1, *self.target_shape)
-        return {self.group: group_dict}
-
-    def __len__(self):
-        return self._len
-
-    @property
-    def idxes(self):
-        """The indices of the current image batch.
-        """
-        return self._next_el_op[0]
-
-    @property
-    def images(self):
-        """The tensorflow operator to get the current image batch.
-        """
-        return self._next_el_op[1]
-
-    @property
-    def targets(self):
-        """The Tensorflow operator to get the current batch of masks.
-        """
-        return self._next_el_op[2]
+            for idx in idxes:
+                image, target = self._get_input_and_target(idx, h5)
+                yield idx, image, target
 
 
-class HDFDataset:
-    def __init__(
-        self,
-        data_path,
-        batch_size,
-        train_group="train",
-        val_group="validation",
-        test_group="test",
-        dataset="images",
-        target="masks",
-        prefetch=1,
-        keep_in_ram=False,
-        preprocessor=None,
-        is_training=None,
-        is_testing=None,
-    ):
-        """Setup the data reader.
-
-        The HDF5 file should have one group for the training set, one for the
-        test set and one for the validation set. The input data and
-        and the labels should be in two different HDF5 dataset.
-
-        Parameters:
-        -----------
-        data_path : str
-            The path to the h5 file.
-        batch_size : int or list
-            The batch size(s) to use, if list, the first number will be used
-            as training batch size, the second as the validation batch size
-            and the last as the test batch size.
-        train_group : str
-            Internal path to the h5 group where the training data is.
-        test_group : str
-            Internal path to the h5 group where the test data is.
-        val_group : str
-            Internal path to the h5 group where the validation data is.
-        dataset : str
-            Name of the h5 dataset which contains the data points.
-        target : str
-            Name of the h5 dataset which contains the labels (or whichever
-            output that is wanted from the network).
-        prefetch : int
-            Number of batches to load at the same time as a training step is
-            performed. Used to reduce waiting time between training steps.
-        keep_in_ram : bool
-            If true, the whole dataset will be loaded to RAM.
-        preprocessor : str or None
-            The preproccesing method to use. Must be an element of the
-            `scinets.data.preprocessor` module.
-        is_training : tensorflow.Placeholder(bool, [])
-            Placeholder used to specify whether the training data should be
-            the output or not.
-        is_testing : tensorflow.Placeholder(bool, [])
-            Placeholder used to specify whether the test or validation data
-            should be used. If `is_training` is True, this is ignored.
-        """
-        if isinstance(batch_size, int):  # Check if batch_size is iterable
-            batch_size = [batch_size] * 3
-        if is_training is None:
-            is_training = tf.placeholder_with_default(
-                True, shape=[], name="is_training"
-            )
-        if is_testing is None:
-            is_testing = tf.placeholder_with_default(False, shape=[], name="is_testing")
-        self.data_path = str(data_path)
-
-        self.is_training = is_training
-        self.is_testing = is_testing
-        self.batch_size = batch_size
-
-        with tf.variable_scope("data_loader"):
-            self.train_data_reader = HDFData(
-                data_path=data_path,
-                batch_size=batch_size[0],
-                group=train_group,
-                dataset=dataset,
-                target=target,
-                prefetch=prefetch,
-                keep_in_ram=keep_in_ram,
-                preprocessor=preprocessor,
-                name="train_reader",
-            )
-            self.val_data_reader = HDFData(
-                data_path=data_path,
-                batch_size=batch_size[1],
-                group=val_group,
-                dataset=dataset,
-                target=target,
-                prefetch=prefetch,
-                keep_in_ram=keep_in_ram,
-                preprocessor=preprocessor,
-                name="val_reader",
-            )
-            self.test_data_reader = HDFData(
-                data_path=data_path,
-                batch_size=batch_size[2],
-                group=test_group,
-                dataset=dataset,
-                target=target,
-                prefetch=prefetch,
-                keep_in_ram=keep_in_ram,
-                preprocessor=preprocessor,
-                name="test_reader",
-            )
-            self._create_conditionals()
-
+class BaseDataset(ABC):
     def _create_conditionals(self):
         """Set up conditional operators specifying which datasets to use.
         """
@@ -364,13 +288,9 @@ class HDFDataset:
                 name="use_train_idxes",
             )
 
-    @property
+    @abstractproperty
     def initializers(self):
-        return [
-            self.train_data_reader.initializer,
-            self.test_data_reader.initializer,
-            self.val_data_reader.initializer,
-        ]
+        pass
 
     @property
     def data(self):
@@ -419,6 +339,115 @@ class HDFDataset:
     @property
     def _test_idxes(self):
         return self.test_data_reader.idxes
+
+
+class HDFDataset(BaseDataset):
+    def __init__(
+        self,
+        data_path,
+        batch_size,
+        train_group="train",
+        val_group="validation",
+        test_group="test",
+        dataset="images",
+        target="masks",
+        prefetch=1,
+        preprocessor=None,
+        is_training=None,
+        is_testing=None,
+    ):
+        """Setup the data reader.
+
+        The HDF5 file should have one group for the training set, one for the
+        test set and one for the validation set. The input data and
+        and the labels should be in two different HDF5 dataset.
+
+        Parameters:
+        -----------
+        data_path : str
+            The path to the h5 file.
+        batch_size : int or list
+            The batch size(s) to use, if list, the first number will be used
+            as training batch size, the second as the validation batch size
+            and the last as the test batch size.
+        train_group : str
+            Internal path to the h5 group where the training data is.
+        test_group : str
+            Internal path to the h5 group where the test data is.
+        val_group : str
+            Internal path to the h5 group where the validation data is.
+        dataset : str
+            Name of the h5 dataset which contains the data points.
+        target : str
+            Name of the h5 dataset which contains the labels (or whichever
+            output that is wanted from the network).
+        prefetch : int
+            Number of batches to load at the same time as a training step is
+            performed. Used to reduce waiting time between training steps.
+        preprocessor : str or None
+            The preproccesing method to use. Must be an element of the
+            `scinets.data.preprocessor` module.
+        is_training : tensorflow.Placeholder(bool, [])
+            Placeholder used to specify whether the training data should be
+            the output or not.
+        is_testing : tensorflow.Placeholder(bool, [])
+            Placeholder used to specify whether the test or validation data
+            should be used. If `is_training` is True, this is ignored.
+        """
+        if isinstance(batch_size, int):  # Check if batch_size is iterable
+            batch_size = [batch_size] * 3
+        if is_training is None:
+            is_training = tf.placeholder_with_default(
+                True, shape=[], name="is_training"
+            )
+        if is_testing is None:
+            is_testing = tf.placeholder_with_default(False, shape=[], name="is_testing")
+        self.data_path = str(data_path)
+
+        self.is_training = is_training
+        self.is_testing = is_testing
+        self.batch_size = batch_size
+
+        with tf.variable_scope("data_loader"):
+            self.train_data_reader = HDFData(
+                data_path=data_path,
+                batch_size=batch_size[0],
+                group=train_group,
+                dataset=dataset,
+                target=target,
+                prefetch=prefetch,
+                preprocessor=preprocessor,
+                name="train_reader",
+            )
+            self.val_data_reader = HDFData(
+                data_path=data_path,
+                batch_size=batch_size[1],
+                group=val_group,
+                dataset=dataset,
+                target=target,
+                prefetch=prefetch,
+                preprocessor=preprocessor,
+                name="val_reader",
+            )
+            self.test_data_reader = HDFData(
+                data_path=data_path,
+                batch_size=batch_size[2],
+                group=test_group,
+                dataset=dataset,
+                target=target,
+                prefetch=prefetch,
+                preprocessor=preprocessor,
+                name="test_reader",
+            )
+            self._create_conditionals()
+
+    @property
+    def initializers(self):
+        return [
+            self.train_data_reader.initializer,
+            self.test_data_reader.initializer,
+            self.val_data_reader.initializer,
+        ]
 
 
 class MNISTDataset(HDFDataset):
