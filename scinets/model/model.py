@@ -10,7 +10,7 @@ __email__ = "yngve.m.moe@gmail.com"
 from copy import copy
 import tensorflow as tf
 import math as m
-from . import layers
+from .layers import get_layer
 from .losses import get_loss
 from abc import ABC, abstractmethod
 
@@ -69,7 +69,7 @@ class BaseModel(ABC):
         self.reg_lists = {}
 
         with tf.variable_scope(self.name) as self.vscope:
-            self.build_model()
+            self._build_model()
 
         # Set loss function
         if true_out is not None and loss_function is not None:
@@ -95,7 +95,6 @@ class BaseModel(ABC):
         if "name" not in arguments:
             arguments["name"] = "loss_function"
 
-
         loss_function = get_loss(loss_function["operator"])(**arguments)
         with tf.variable_scope(self.name + "/loss"):
             uregularised_loss = tf.reduce_mean(
@@ -116,15 +115,18 @@ class BaseModel(ABC):
             self.reg_op = tf.add_n(self.reg_list, name="regularizers")
 
     @abstractmethod
-    def build_model(self):
+    def _build_model(self):
         pass
 
-    def assemble_layer(self, layer_dict):
-        """Assemble a single layer.
+    def _assemble_layer(self, layer_dict, layer_input):
+        """Assemble the next layer.
         """
-        layer_class = layers.get_layer(layer_dict["layer"])
+        layer_class = get_layer(layer_dict["layer"])
         layer = layer_class(
-            self.out, is_training=self.is_training, verbose=self.verbose, **layer_dict
+            layer_input,
+            is_training=self.is_training,
+            verbose=self.verbose,
+            **layer_dict
         )
 
         self.layers.append(layer)
@@ -137,14 +139,14 @@ class BaseModel(ABC):
 
 
 class NeuralNet(BaseModel):
-    def build_model(self):
+    def _build_model(self):
         """Assemble the network.
         """
         if self.verbose:
             print("\n" + 25 * "-" + "Assembling network" + 25 * "-")
 
         for layer in self.architecture:
-            self.assemble_layer(layer)
+            self._assemble_layer(layer, layer_input=self.out)
 
         if self.verbose:
             print(25 * "-" + "Finished assembling" + 25 * "-" + "\n")
@@ -211,14 +213,14 @@ class UNet(BaseModel):
         )
         return tf.concat((first_tensor, second_tensor), axis=-1)
 
-    def build_model(self):
+    def _build_model(self):
         """Assemble the network.
         """
         if self.verbose:
             print("\n" + 25 * "-" + "Assembling network" + 25 * "-")
 
         for i, layer in enumerate(self.architecture):
-            self.assemble_layer(layer)
+            self._assemble_layer(layer, layer_input=self.out)
             if self.is_skip_connection_target(layer):
                 self.create_skip_connection(layer)
 
