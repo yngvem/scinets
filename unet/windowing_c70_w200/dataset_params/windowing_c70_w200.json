@@ -1,12 +1,15 @@
 {
-    "data_path": "/dataset/val_split_2d.h5",
-    "batch_size": [16, 128, 128],
-    "val_group": "val",
-    "preprocessor": {
-        "operator": "HoundsfieldWindowingPreprocessor",
-        "arguments": {
-            "window_width": 200,
-            "window_center": 70
+    "operator": "HDFDataset",
+    "arguments": {
+        "data_path": "/dataset/val_split_2d.h5",
+        "batch_size": [16, 128, 128],
+        "val_group": "val",
+        "preprocessor": {
+            "operator": "HoundsfieldWindowingPreprocessor",
+            "arguments": {
+                "window_width": 200,
+                "window_center": 70
+            }
         }
     }
 }
