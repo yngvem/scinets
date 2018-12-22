@@ -11,7 +11,8 @@ import h5py
 import tensorflow as tf
 from contextlib import contextmanager
 from tensorflow.examples.tutorials.mnist import input_data
-from ..data import preprocessing
+from . import preprocessing
+from .._backend_utils import SubclassRegister
 from abc import ABC, abstractmethod, abstractproperty
 
 
