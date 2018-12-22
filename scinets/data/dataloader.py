@@ -15,6 +15,7 @@ from .._backend_utils import SubclassRegister
 
 dataset_register = SubclassRegister("data reader")
 
+
 def get_dataset(dataset):
     return dataset_register.get_item(dataset)
 
@@ -29,6 +30,7 @@ class BaseDataset:
       * val_data_reader
       * test_data_reader
     """
+
     def _create_conditionals(self):
         """Set up conditional operators specifying which datasets to use.
         """
@@ -177,28 +179,30 @@ class Dataset(BaseDataset):
         self.is_training = is_training
         self.is_testing = is_testing
 
-
         DataReader = get_datareader(reader_type)
         with tf.variable_scope("data_loader"):
             self.train_data_reader = DataReader(
-                **reader_kwargs.get('all', {}),
-                **reader_kwargs.get('train', {}),
+                **reader_kwargs.get("all", {}),
+                **reader_kwargs.get("train", {}),
+                batch_size=batch_size[0],
                 name="train_reader",
             )
             self.val_data_reader = DataReader(
-                **reader_kwargs.get('all', {}),
-                **reader_kwargs.get('val', {}),
+                **reader_kwargs.get("all", {}),
+                **reader_kwargs.get("val", {}),
+                batch_size=batch_size[1],
                 name="val_reader",
             )
             self.test_data_reader = DataReader(
-                **reader_kwargs.get('all', {}),
-                **reader_kwargs.get('test', {}),
+                **reader_kwargs.get("all", {}),
+                **reader_kwargs.get("test", {}),
+                batch_size=batch_size[2],
                 name="test_reader",
             )
             self._create_conditionals()
 
 
-class HDFDataset(BaseDataset):
+class HDFDataset(Dataset):
     """A wrapper for the dataset class that makes it easier to create datasets
     with HDFReaders.
     """
@@ -269,8 +273,13 @@ class HDFDataset(BaseDataset):
             "test": {"group": test_group},
         }
 
-        super(batch_size=batch_size, is_training=is_training, is_testing=is_testing,
-              reader_type='HDFReader', reader_kwargs=reader_kwargs)
+        super().__init__(
+            batch_size=batch_size,
+            is_training=is_training,
+            is_testing=is_testing,
+            reader_type="HDFReader",
+            reader_kwargs=reader_kwargs,
+        )
 
 
 class MNISTDataset(BaseDataset):
@@ -388,7 +397,3 @@ class MNISTDataset(BaseDataset):
     @property
     def _val_idxes(self):
         return self._val_next_el_op[0]
-
-
-if __name__ == "__main__":
-    pass
