@@ -102,6 +102,7 @@ class NetworkExperiment:
 
         # Create TensorFlow objects
         self.dataset, self.epoch_size = self._get_dataset(dataset_params)
+        self.steps_per_epoch = self.epoch_size//self.dataset.batch_size[0]
         self.model = self._get_model(model_params)
         self.trainer = self._get_trainer(trainer_params)
         self.evaluator = self._get_evaluator(log_params["evaluator"])
@@ -163,7 +164,7 @@ class NetworkExperiment:
     def _get_trainer(self, trainer_params):
         return NetworkTrainer(
             self.model,
-            epoch_size=self.epoch_size,
+            steps_per_epoch=self.steps_per_epoch,
             log_dir=self.log_dir,
             verbose=self.verbose,
             **trainer_params,
@@ -405,6 +406,7 @@ class SacredExperiment(NetworkExperiment):
 
         # Create TensorFlow objects
         self.dataset, self.epoch_size = self._get_dataset(dataset_params)
+        self.steps_per_epoch = self.epoch_size//self.dataset.batch_size[0]
         self.model = self._get_model(model_params)
         self.trainer = self._get_trainer(trainer_params)
         self.evaluator = self._get_evaluator(log_params["evaluator"])
@@ -500,6 +502,8 @@ class MNISTExperiment(NetworkExperiment):
         # Create TensorFlow objects
         self.dataset = MNISTDataset(name="MNIST")
         self.epoch_size = 40000
+        self.steps_per_epoch = 100
+        
         self.model = self._get_model(model_params)
         self.trainer = self._get_trainer(trainer_params)
         self.evaluator = self._get_evaluator(log_params["evaluator"])

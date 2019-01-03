@@ -6,7 +6,7 @@
         }
     },
     "learning_rate_op": {
-        "operator": "cosine_decay_restarts",
+        "operator": "CosineDecayRestarts",
         "arguments": {
             "learning_rate": 0.0001,
             "first_decay_steps": 100,
