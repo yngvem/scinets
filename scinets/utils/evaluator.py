@@ -9,19 +9,34 @@ __email__ = "yngve.m.moe@gmail.com"
 import tensorflow as tf
 import numpy as np
 import h5py
+from .._backend_utils import SubclassRegister
 
 
-class ClassificationEvaluator:
+evaluator_register = SubclassRegister("model evaluator")
+
+
+def get_evaluator(evaluator):
+    return evaluator_register.get_item(evaluator)
+
+
+@evaluator_register.link_base
+class BaseEvaluator:
     def __init__(self, network, scope="evaluator"):
         self.network = network
         self.input = network.input
         self.loss = network.loss
         self.out = network.out
         self.true_out = network.true_out
-
         self._out_channels = self.out.get_shape().as_list()[-1]
 
-        with tf.variable_scope(scope):
+        self.scope = scope
+
+
+class ClassificationEvaluator(BaseEvaluator):
+    def __init__(self, network, scope="evaluator"):
+        super().__init__(network, scope)
+
+        with tf.variable_scope(self.scope):
             self.target = self._init_target()
             self.probabilities = self._init_probabilities()
             self.prediction = self._init_prediction()
@@ -112,20 +127,29 @@ class BinaryClassificationEvaluator(ClassificationEvaluator):
 
     def _init_precision(self):
         with tf.variable_scope("precision"):
-            return self.true_positives / (self.true_positives + self.false_positives + 1e-8)
+            return self.true_positives / (
+                self.true_positives + self.false_positives + 1e-8
+            )
 
     def _init_sensitivity(self):
         with tf.variable_scope("sensitivity"):
-            return self.true_positives / (self.true_positives + self.false_negatives + 1e-8)
+            return self.true_positives / (
+                self.true_positives + self.false_negatives + 1e-8
+            )
 
     def _init_specificity(self):
         with tf.variable_scope("specificity"):
-            return self.true_negatives / (self.true_negatives + self.false_positives + 1e-8)
+            return self.true_negatives / (
+                self.true_negatives + self.false_positives + 1e-8
+            )
 
     def _init_dice(self):
         with tf.variable_scope("dice"):
             dice = (2 * self.true_positives) / (
-                2 * self.true_positives + self.false_negatives + self.false_positives + 1e-8
+                2 * self.true_positives
+                + self.false_negatives
+                + self.false_positives
+                + 1e-8
             )
         return dice
 
@@ -219,7 +243,7 @@ class NetworkTester:
         performances = []
         for i in range(num_its):
             performances.append(sess.run(self.performance_ops, feed_dict=feed_dict))
-        performances = performances[:len(dataset)]
+        performances = performances[: len(dataset)]
 
         return self._create_performance_dict(performances)
 
@@ -263,7 +287,6 @@ class NetworkTester:
 
             for key, output in outputs.items():
                 outputs[key] = outputs[key][:-extra_evals]
-
 
         # Insert new evaluations
         group = h5[f"{dataset_type}"]
