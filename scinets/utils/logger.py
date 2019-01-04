@@ -11,8 +11,17 @@ from pathlib import Path
 import h5py
 from copy import deepcopy
 from collections import ChainMap
+from .._backend_utils import SubclassRegister
 
 
+logger_register = SubclassRegister("logger")
+
+
+def get_logger(logger):
+    return logger_register.get_item(logger)
+
+
+@logger_register.link_base
 class BaseLogger:
     def __init__(
         self,
@@ -21,6 +30,7 @@ class BaseLogger:
         log_dicts=None,
         train_log_dicts=None,
         val_log_dicts=None,
+        **kwargs,
     ):
         """Superclass for loggers.
 
@@ -112,6 +122,9 @@ class BaseLogger:
         """
         raise NotImplementedError("Subclasses must implement this function")
 
+    def init_logging(self, **kwargs):
+        pass
+
     def log_multiple(self, summaries, it_nums, log_type="train", *args, **kwargs):
         """Log summaries for several single time steps.
 
@@ -160,6 +173,7 @@ class TensorboardLogger(BaseLogger):
         val_log_dicts=None,
         log_dir="./logs",
         additional_vars=None,
+        **kwargs,
     ):
         """Initiates a TensorBoard logger.
 
@@ -293,7 +307,7 @@ class TensorboardLogger(BaseLogger):
         with tf.name_scope(var_name.replace(":", "_")):
             return log_function(log_name=log_name, log_var=log_var, **log_kwargs)
 
-    def init_file_writers(self, session, save_step=100):
+    def init_logging(self, session, save_step=100, **kwargs):
         """Initiate the FileWriters that save the train and validation logs.
 
         Parameters
@@ -388,6 +402,7 @@ class HDF5Logger(BaseLogger):
         val_log_dicts=None,
         log_dir="./logs",
         filename="logs.h5",
+        **kwargs,
     ):
         """Initiate a HDF5 logger.
 
@@ -540,7 +555,7 @@ class HDF5Logger(BaseLogger):
 
 class SacredLogger(BaseLogger):
     def __init__(
-        self, evaluator, log_dicts=None, train_log_dicts=None, val_log_dicts=None
+        self, evaluator, log_dicts=None, train_log_dicts=None, val_log_dicts=None, **kwargs
     ):
         """Initiate a Sacred logger.
 
@@ -605,6 +620,7 @@ class SacredLogger(BaseLogger):
             train_log_dicts=train_log_dicts,
             val_log_dicts=val_log_dicts,
         )
+        self._run = None
 
         both_summary_ops = self._init_logs(self.log_dicts)
         self.train_summary_op = self._join_summaries(
@@ -622,6 +638,9 @@ class SacredLogger(BaseLogger):
         version of all input dictionaries.
         """
         return [dict(ChainMap(*map(lambda x: x[0], args)))]
+
+    def init_logging(self, _run, **kwargs):
+        self._run = _run
 
     def _init_logs(self, log_dict):
         """Initiate the logging operators specified in `log_dictsj`.
@@ -651,7 +670,7 @@ class SacredLogger(BaseLogger):
         """
         return {log_name: log_var}
 
-    def log_multiple(self, summaries, it_nums, log_type="train", _run=None):
+    def log_multiple(self, summaries, it_nums, log_type="train"):
         """Log summaries for several single time steps.
 
         Parameters
@@ -663,41 +682,22 @@ class SacredLogger(BaseLogger):
         log_type : str
             Specify wether the train writer or validation writer should
             be used.
-        _run : sacred.Run
-            The sacred instance to use for logging.
         """
-        if _run is None:
-            raise ValueError("Run instance must be provided.")
+        if self._run is None:
+            raise ValueError("Logging must be initiated with `init_logging(_run)`")
 
         summary = {log_var: 0 for log_var in summaries[0][0]}
         for log in summaries:
             for log_var, log_value in log[0].items():
                 summary[log_var] += np.mean(log_value) / len(it_nums)
-        self.log([summary], it_nums[-1], log_type=log_type, _run=_run)
+        self.log([summary], it_nums[-1], log_type=log_type)
 
-    def log(self, summary, it_num, log_type="train", _run=None):
-        """Log summaries for a single time step.
-
-        Parameters
-        ----------
-        summary : dict
-            A dictionary where the keys are the name of the variables
-            and the values are the variables' values.
-        it_num : int
-            Iteration number.
-        log_type : str
-            Specify wether the train writer or validation writer should
-            be used.
-        _run : sacred.Run
-            The sacred instance to use for logging.
-        """
-        if _run is None:
-            raise ValueError("Run instance must be provided.")
-        super().log(summary=summary, it_num=it_num, _run=_run, log_type=log_type)
-
-    def _log(self, summary, it_num, log_type, _run):
+    def _log(self, summary, it_num, log_type):
         """Logs a single time step.
         """
+        if self._run is None:
+            raise ValueError("Logging must be initiated with `init_logging(_run)`")
+
         it_num = int(it_num)
         for s_dicts in summary:
             for name, s in s_dicts.items():
@@ -705,4 +705,4 @@ class SacredLogger(BaseLogger):
                 s = np.mean(s)
                 if np.isnan(s):
                     s = -1
-                _run.log_scalar(name, s, it_num)
+                self._run.log_scalar(name, s, it_num)

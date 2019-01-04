@@ -5,7 +5,7 @@
         "arguments": {
         }
     },
-    "learning_rate_op": {
+    "learning_rate_scheduler": {
         "operator": "CosineDecayRestarts",
         "arguments": {
             "learning_rate": 0.0001,

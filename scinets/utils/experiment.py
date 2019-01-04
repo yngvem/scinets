@@ -5,8 +5,9 @@ from pathlib import Path
 from tqdm import trange
 from ..model import model
 from ..trainer import NetworkTrainer
-from ..utils import TensorboardLogger, SacredLogger, HDF5Logger
-from ..utils import evaluator
+from .logger import get_logger
+from .evaluator import get_evaluator
+from . import evaluator
 from ..data import get_dataset
 
 
@@ -102,16 +103,12 @@ class NetworkExperiment:
 
         # Create TensorFlow objects
         self.dataset, self.epoch_size = self._get_dataset(dataset_params)
-        self.steps_per_epoch = self.epoch_size//self.dataset.batch_size[0]
+        self.steps_per_epoch = self.epoch_size // self.dataset.batch_size[0]
         self.model = self._get_model(model_params)
         self.trainer = self._get_trainer(trainer_params)
         self.evaluator = self._get_evaluator(log_params["evaluator"])
-        self.tb_logger = self._get_tensorboard_logger(log_params["tb_params"])
+        self.loggers = self._get_loggers(log_params["loggers"])
         self.network_tester = self._get_network_tester(log_params["network_tester"])
-
-        if "h5_params" not in log_params:
-            log_params["h5_params"] = {"log_dicts": {}}
-        self.h5_logger = self._get_h5_logger(log_params["h5_params"])
 
     def _get_continue_old(self, experiment_params):
         """Extract whether an old experiment should be continued.
@@ -170,20 +167,16 @@ class NetworkExperiment:
             **trainer_params,
         )
 
-    def _get_evaluator(self, evaluator_type):
-        evaluator_type = getattr(evaluator, evaluator_type)
-        return evaluator_type(self.model)
+    def _get_evaluator(self, evaluator_params):
+        Evaluator = get_evaluator(evaluator_params["operator"])
+        return Evaluator(self.model, **evaluator_params.get("arguments", {}))
 
-    def _get_tensorboard_logger(self, tensorboard_params):
-        return TensorboardLogger(
-            self.evaluator,
-            log_dir=self.log_dir,
-            additional_vars={"learning_rate": self.trainer.learning_rate},
-            **tensorboard_params,
-        )
+    def _get_logger(self, logger):
+        Logger = get_logger(logger["operator"])
+        return Logger(self.evaluator, log_dir=self.log_dir, **logger.get("arguments", {}))
 
-    def _get_h5_logger(self, h5_params):
-        return HDF5Logger(self.evaluator, log_dir=self.log_dir, **h5_params)
+    def _get_loggers(self, loggers):
+        return [self._get_logger(logger) for logger in loggers]
 
     def _get_network_tester(self, network_tester_params):
         return evaluator.NetworkTester(
@@ -203,47 +196,39 @@ class NetworkExperiment:
         sess.run([tf.global_variables_initializer(), self.dataset.initializers])
         if continue_old:
             self.trainer.load_state(sess, step_num=step_num)
-        self.tb_logger.init_file_writers(sess)
+        for logger in self.loggers:
+            logger.init_logging(session=sess)
 
     def _train_steps(self, sess):
-        """Perform `self.val_interval` train steps.
+        """Perform `self.val_interval` train steps and return summaries and it_nums.
         """
-        train_ops = [self.tb_logger.train_summary_op, self.h5_logger.train_summary_op]
+        summary_ops = [logger.train_summary_op for logger in self.loggers]
 
         summaries, it_nums = self.trainer.train(
-            session=sess, num_steps=self.val_interval, additional_ops=train_ops
+            session=sess, num_steps=self.val_interval, additional_ops=summary_ops
         )
 
-        summaries_dict = {}
-        summaries_dict["tb_summaries"] = [s[0] for s in summaries]
-        summaries_dict["h5_summaries"] = [s[1] for s in summaries]
+        summaries_dict = {
+            logger: [s[i] for s in summaries] for i, logger in enumerate(self.loggers)
+        }
         return summaries_dict, it_nums
 
     def _val_logs(self, sess):
-        val_ops = [self.tb_logger.train_summary_op, self.h5_logger.train_summary_op]
+        """Returns the validation summary operators."""
+        val_ops = {logger: logger.train_summary_op for logger in self.loggers}
 
-        tb_summary, h5_summary = sess.run(
-            val_ops, feed_dict={self.model.is_training: False}
-        )
-
-        summary_dict = {}
-        summary_dict["tb_summary"] = tb_summary
-        summary_dict["h5_summary"] = h5_summary
-
-        return summary_dict
+        return sess.run(val_ops, feed_dict={self.model.is_training: False})
 
     def _train_its(self, sess):
         """Perform `self.val_interval` train steps and log validation metrics.
         """
         summaries, it_nums = self._train_steps(sess)
-        self.tb_logger.log_multiple(summaries["tb_summaries"], it_num)
-        self.h5_logger.log_multiple(summaries["h5_summaries"], it_num)
+        for logger, summary in summaries.items():
+            logger.log_multiple(summary, it_nums=it_nums)
 
-        val_summaries = sess.run(
-            val_summaries, feed_dict={self.model.is_training: False}
-        )
-        self.tb_logger.log(val_summaries["tb_summary"], it_num[-1], log_type="val")
-        self.h5_logger.log(val_summaries["h5_summary"], it_num[-1], log_type="val")
+        val_summaries = self._val_logs(sess)
+        for logger, summary in val_summaries.items():
+            logger.log(summary, it_nums[-1], log_type="val")
 
     def train(self, num_steps):
         """Train the specified model for the given number of steps.
@@ -396,89 +381,25 @@ class SacredExperiment(NetworkExperiment):
             }
         """
         self._run = _run
+        super().__init__(
+            experiment_params=experiment_params,
+            model_params=model_params,
+            dataset_params=dataset_params,
+            trainer_params=trainer_params,
+            log_params=log_params,
+        )
 
-        # Set experiment properties
-        self.log_dir = self._get_logdir(experiment_params)
-        self.continue_old = self._get_continue_old(experiment_params)
-        self.name = self._get_name(experiment_params)
-        self.val_interval = log_params["val_log_frequency"]
-        self.verbose = experiment_params["verbose"]
-
-        # Create TensorFlow objects
-        self.dataset, self.epoch_size = self._get_dataset(dataset_params)
-        self.steps_per_epoch = self.epoch_size//self.dataset.batch_size[0]
-        self.model = self._get_model(model_params)
-        self.trainer = self._get_trainer(trainer_params)
-        self.evaluator = self._get_evaluator(log_params["evaluator"])
-        self.tb_logger = self._get_tensorboard_logger(log_params["tb_params"])
-        self.sacred_logger = self._get_sacred_logger(log_params["sacred_params"])
-        self.network_tester = self._get_network_tester(log_params["network_tester"])
-
-        if "h5_params" not in log_params:
-            log_params["h5_params"] = {"log_dicts": {}}
-        self.h5_logger = self._get_h5_logger(log_params["h5_params"])
-
-    def _train_steps(self, sess):
-        """Perform `self.val_interval` train steps.
+    def _init_session(self, sess, continue_old=None, step_num=None):
+        """Initialise the session. Must be run before any training iterations.
         """
-        train_ops = [
-            self.tb_logger.train_summary_op,
-            self.h5_logger.train_summary_op,
-            self.sacred_logger.train_summary_op,
-        ]
+        if continue_old is None:
+            continue_old = self.continue_old
 
-        summaries, it_nums = self.trainer.train(
-            session=sess, num_steps=self.val_interval, additional_ops=train_ops
-        )
-
-        summaries_dict = {}
-        summaries_dict["tb_summaries"] = [s[0] for s in summaries]
-        summaries_dict["h5_summaries"] = [s[1] for s in summaries]
-        summaries_dict["sacred_summaries"] = [s[2] for s in summaries]
-        return summaries_dict, it_nums
-
-    def _val_logs(self, sess):
-        """Create validation logs.
-        """
-        val_ops = [
-            self.tb_logger.train_summary_op,
-            self.h5_logger.train_summary_op,
-            self.sacred_logger.train_summary_op,
-        ]
-
-        tb_summary, h5_summary, sacred_summary = sess.run(
-            val_ops, feed_dict={self.model.is_training: False}
-        )
-
-        summary_dict = {}
-        summary_dict["tb_summary"] = tb_summary
-        summary_dict["h5_summary"] = h5_summary
-        summary_dict["sacred_summary"] = sacred_summary
-
-        return summary_dict
-
-    def _train_its(self, sess):
-        """Perform `self.val_interval` train steps and log validation metrics.
-        """
-        summaries, it_nums = self._train_steps(sess)
-        self.tb_logger.log_multiple(summaries["tb_summaries"], it_nums)
-        self.h5_logger.log_multiple(summaries["h5_summaries"], it_nums)
-        self.sacred_logger.log_multiple(
-            summaries["sacred_summaries"], it_nums=it_nums, _run=self._run
-        )
-
-        summaries = self._val_logs(sess)
-        self.tb_logger.log(summaries["tb_summary"], it_nums[-1], log_type="val")
-        self.h5_logger.log(summaries["h5_summary"], it_nums[-1], log_type="val")
-        self.sacred_logger.log(
-            summaries["sacred_summary"],
-            it_num=it_nums[-1],
-            log_type="val",
-            _run=self._run,
-        )
-
-    def _get_sacred_logger(self, sacred_dict):
-        return SacredLogger(self.evaluator, **sacred_dict)
+        sess.run([tf.global_variables_initializer(), self.dataset.initializers])
+        if continue_old:
+            self.trainer.load_state(sess, step_num=step_num)
+        for logger in self.loggers:
+            logger.init_logging(session=sess, _run=self._run)
 
 
 class MNISTExperiment(NetworkExperiment):
@@ -503,7 +424,7 @@ class MNISTExperiment(NetworkExperiment):
         self.dataset = MNISTDataset(name="MNIST")
         self.epoch_size = 40000
         self.steps_per_epoch = 100
-        
+
         self.model = self._get_model(model_params)
         self.trainer = self._get_trainer(trainer_params)
         self.evaluator = self._get_evaluator(log_params["evaluator"])
