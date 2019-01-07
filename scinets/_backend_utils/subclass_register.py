@@ -11,7 +11,7 @@ class BaseRegister:
 
     def get_items_by_similarity(self, item):
         def get_similarity(item_):
-            return difflib.SequenceMatcher(None, item, item_).ratio()
+            return difflib.SequenceMatcher(None, item.lower(), item_.lower()).ratio()
 
         return sorted(self.register, key=get_similarity, reverse=True)
 
@@ -25,6 +25,9 @@ class BaseRegister:
                 traceback = f"{traceback}\n   * {available}"
 
             raise ValueError(traceback)
+
+    def __get_item__(self, item):
+        return self.get_item(item)
 
     def get_item(self, item):
         self.validate_item_in_register(item)
