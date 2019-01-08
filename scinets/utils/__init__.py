@@ -8,4 +8,4 @@ from .evaluator import (
     NetworkTester,
 )
 from .logger import TensorboardLogger, SacredLogger, HDF5Logger
-from .experiment import NetworkExperiment, SacredExperiment, MNISTExperiment
+from .experiment import NetworkExperiment, MNISTExperiment
