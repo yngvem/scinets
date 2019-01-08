@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import sacred
 from pathlib import Path
+from operator import itemgetter
 from tqdm import trange
 from ..model import model
 from ..trainer import NetworkTrainer
@@ -173,7 +174,9 @@ class NetworkExperiment:
 
     def _get_logger(self, logger):
         Logger = get_logger(logger["operator"])
-        return Logger(self.evaluator, log_dir=self.log_dir, **logger.get("arguments", {}))
+        return Logger(
+            self.evaluator, log_dir=self.log_dir, **logger.get("arguments", {})
+        )
 
     def _get_loggers(self, loggers):
         return [self._get_logger(logger) for logger in loggers]
@@ -187,25 +190,29 @@ class NetworkExperiment:
             **network_tester_params,
         )
 
-    def _init_session(self, sess, continue_old=None, step_num=None):
+    def _init_session(
+        self, session, logger_kwargs=None, continue_old=None, step_num=None
+    ):
         """Initialise the session. Must be run before any training iterations.
         """
         if continue_old is None:
             continue_old = self.continue_old
+        if logger_kwargs is None:
+            logger_kwargs = {}
 
-        sess.run([tf.global_variables_initializer(), self.dataset.initializers])
+        session.run([tf.global_variables_initializer(), self.dataset.initializers])
         if continue_old:
-            self.trainer.load_state(sess, step_num=step_num)
+            self.trainer.load_state(session, step_num=step_num)
         for logger in self.loggers:
-            logger.init_logging(session=sess)
+            logger.init_logging(session=session, **logger_kwargs)
 
-    def _train_steps(self, sess):
+    def _train_steps(self, session):
         """Perform `self.val_interval` train steps and return summaries and it_nums.
         """
         summary_ops = [logger.train_summary_op for logger in self.loggers]
 
         summaries, it_nums = self.trainer.train(
-            session=sess, num_steps=self.val_interval, additional_ops=summary_ops
+            session=session, num_steps=self.val_interval, additional_ops=summary_ops
         )
 
         summaries_dict = {
@@ -213,37 +220,37 @@ class NetworkExperiment:
         }
         return summaries_dict, it_nums
 
-    def _val_logs(self, sess):
+    def _val_logs(self, session):
         """Returns the validation summary operators."""
         val_ops = {logger: logger.train_summary_op for logger in self.loggers}
 
-        return sess.run(val_ops, feed_dict={self.model.is_training: False})
+        return session.run(val_ops, feed_dict={self.model.is_training: False})
 
-    def _train_its(self, sess):
+    def _train_its(self, session):
         """Perform `self.val_interval` train steps and log validation metrics.
         """
-        summaries, it_nums = self._train_steps(sess)
+        summaries, it_nums = self._train_steps(session)
         for logger, summary in summaries.items():
             logger.log_multiple(summary, it_nums=it_nums)
 
-        val_summaries = self._val_logs(sess)
+        val_summaries = self._val_logs(session)
         for logger, summary in val_summaries.items():
             logger.log(summary, it_nums[-1], log_type="val")
 
-    def train(self, num_steps):
+    def train(self, num_steps, init_logger_kwargs=None):
         """Train the specified model for the given number of steps.
         """
         iterator = trange if self.verbose else range
         num_vals = num_steps // self.val_interval
-        with tf.Session() as sess:
-            self._init_session(sess)
+        with tf.Session() as session:
+            self._init_session(session, logger_kwargs=init_logger_kwargs)
             for i in iterator(num_vals):
-                self._train_its(sess)
+                self._train_its(session)
 
     def evaluate_model(self, dataset_type, step_num=None):
-        with tf.Session() as sess:
-            self._init_session(sess, continue_old=True, step_num=step_num)
-            return self.network_tester.test_model(dataset_type, sess)
+        with tf.Session() as session:
+            self._init_session(session, continue_old=True, step_num=step_num)
+            return self.network_tester.test_model(dataset_type, session)
 
     def get_all_checkpoint_its(self):
         checkpoint_dir = self.trainer.log_dir
@@ -270,8 +277,6 @@ class NetworkExperiment:
         the values should be dictionaries whose keys are metrics and values
         are mean-std pairs corresponding to the specified metric.
         """
-        from operator import itemgetter
-
         _performance = [
             (it, *performance[metric]) for it, performance in performances.items()
         ]
@@ -281,6 +286,27 @@ class NetworkExperiment:
     def find_best_model(self, dataset_type, performance_metric):
         """Returns the iteration number and performance of the best model
         """
+        if dataset_type == "test":
+            prompt = "-1"
+            prompt = input(
+                "You are about to find optimal dataset on the test set, "
+                "not the validation set. \n"
+                "Are you sure you want to continue? (y/[n]): "
+            ).lower()
+            while prompt not in ["y", "n", ""]:
+                prompt = input("Invalid input, try again (y/[n]): ")
+
+            if prompt == "y":
+                prompt = "-1"
+                prompt = input(
+                    "Are you really sure you want to use the test set? (y/[n]): "
+                ).lower()
+                while prompt not in ["y", "n", ""]:
+                    prompt = input("Invalid input, try again (y/[n]): ")
+
+            if prompt != "y":
+                raise RuntimeError("Tried to find best model on test set")
+
         performances = self.evaluate_all_checkpointed_models(dataset_type)
 
         best_it, performance, std = self._find_best_checkpoint(
@@ -290,116 +316,9 @@ class NetworkExperiment:
 
     def save_outputs(self, dataset_type, filename, step_num):
         filename = self.log_dir / self.name / f"{filename}_{step_num}.h5"
-        with tf.Session() as sess:
-            self._init_session(sess, continue_old=True, step_num=step_num)
-            self.network_tester.save_outputs(dataset_type, filename, sess)
-
-
-class SacredExperiment(NetworkExperiment):
-    def __init__(
-        self,
-        _run,
-        experiment_params,
-        model_params,
-        dataset_params,
-        trainer_params,
-        log_params,
-    ):
-        """
-        experiment_parms = {
-            'log_dir': './',
-            'name': 'test_experiment',
-            'continue_old': False,
-            'num_steps': 10000
-        }
-
-        model_params = {
-            'type': 'NeuralNet',
-            'model_params: {
-                'loss_function': 'sigmoid_cross_entropy_with_logits',
-                'loss_kwargs': {},
-                'architecture': [
-                    {
-                        'layer': 'conv2d',
-                        'scope': 'conv1',
-                        'out_size': 8,
-                        'k_size': (5, 1),
-                        'batch_norm': True,
-                        'activation': 'relu',
-                        'regularizer': {
-                            'function': 'weight_decay',
-                            'arguments': {
-                                'amount': 0.5,
-                                'name': 'weight_decay'
-                            }
-                        }
-                    },
-                    {
-                        'layer': 'conv2d',
-                        'scope': 'conv2',
-                        'out_size': 16,
-                        'k_size': 5,
-                        'strides': 2,
-                        'batch_norm': True,
-                        'activation': 'relu',
-                    },
-                    {
-                        'layer': 'conv2d',
-                        'scope': 'conv3',
-                        'out_size': 16,
-                    }
-                ]
-                'verbose': True,
-            }
-        }
-
-        log_params = {
-            'val_interval': 1000,
-            'evaluator': BinaryClassificationEvaluator,
-            'tb_params':
-                {
-                    'log_dict': None,
-                    'train_log_dict': None,         (optional)
-                    'val_log_dict': None,           (optional)
-                    'train_collection': None,       (optional)
-                    'val_collection': None          (optional)
-                },
-            'sacredboard_params':
-                {
-                    'log_dict': None,
-                    'train_log_dict': None,         (optional)
-                    'val_log_dict': None,           (optional)
-                }
-        }
-
-        trainer_params = {
-                'train_op': 'AdamOptimizer',
-                'train_op_kwargs': None,
-                'max_checkpoints': 10,
-                'save_step': 10,
-                'verbose': True
-            }
-        """
-        self._run = _run
-        super().__init__(
-            experiment_params=experiment_params,
-            model_params=model_params,
-            dataset_params=dataset_params,
-            trainer_params=trainer_params,
-            log_params=log_params,
-        )
-
-    def _init_session(self, sess, continue_old=None, step_num=None):
-        """Initialise the session. Must be run before any training iterations.
-        """
-        if continue_old is None:
-            continue_old = self.continue_old
-
-        sess.run([tf.global_variables_initializer(), self.dataset.initializers])
-        if continue_old:
-            self.trainer.load_state(sess, step_num=step_num)
-        for logger in self.loggers:
-            logger.init_logging(session=sess, _run=self._run)
+        with tf.Session() as session:
+            self._init_session(session, continue_old=True, step_num=step_num)
+            self.network_tester.save_outputs(dataset_type, filename, session)
 
 
 class MNISTExperiment(NetworkExperiment):
