@@ -24,9 +24,9 @@ class BaseRegister:
             for available in sorted_items:
                 traceback = f"{traceback}\n   * {available}"
 
-            raise ValueError(traceback)
+            raise IndexError(traceback)
 
-    def __get_item__(self, item):
+    def __getitem__(self, item):
         return self.get_item(item)
 
     def get_item(self, item):
@@ -61,7 +61,7 @@ class SubclassRegister(BaseRegister):
     --------
     >>> register = SubclassRegister('car')
     >>> 
-    >>> @register.register_base
+    >>> @register.link_base
     >>> class BaseCar:
     >>>     pass
     >>> 
