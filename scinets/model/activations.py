@@ -30,6 +30,14 @@ class RElU(BaseActivation):
         return tf.nn.relu(x)
 
 
+class LeakyRElU(BaseActivation):
+    def __init__(self, alpha=0.2):
+        self.alpha = alpha
+
+    def _build_activation(self, x):
+        return tf.nn.leaky_relu(x, alpha=self.alpha)
+
+
 class Sigmoid(BaseActivation):
     def _build_activation(self, x):
         return tf.nn.sigmoid(x)
