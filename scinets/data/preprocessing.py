@@ -68,8 +68,8 @@ class PreprocessingPipeline(Preprocessor):
 
     def __init__(self, preprocessor_dicts):
         def get_operator(preprocessor_dict):
-            get_preprocessor(preprocessor_dict["operator"])
-            return preprocessor(**preprocessor_dict["arguments"])
+            Preprocessor = get_preprocessor(preprocessor_dict["operator"])
+            return Preprocessor(**preprocessor_dict["arguments"])
 
         self.preprocessors = [
             get_operator(preprocessor_dict) for preprocessor_dict in preprocessor_dicts
