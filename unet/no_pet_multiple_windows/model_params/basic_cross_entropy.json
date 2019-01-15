@@ -1,8 +1,7 @@
 {
     "type": "UNet",
     "network_params": {
-        "loss_function": "sigmoid_cross_entropy_with_logits",
-        "loss_kwargs": {},
+        "loss_function": {"operator": "SigmoidCrossEntropyWithLogits"},
         "skip_connections": [
             ["conv2", "upconv4"],
             ["conv4", "upconv3"],

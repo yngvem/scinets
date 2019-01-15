@@ -1,8 +1,7 @@
 {
     "type": "UNet",
     "network_params": {
-        "loss_function": "binary_f_beta",
-        "loss_kwargs": {"beta": 4},
+        "loss_function": {"operator": "BinaryFBeta", "arguments"={"beta": 4}},
         "skip_connections": [
             ["conv2", "upconv4"],
             ["conv4", "upconv3"],
