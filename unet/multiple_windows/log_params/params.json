@@ -1,6 +1,6 @@
 {
     "val_log_frequency": 100,
-    "evaluator": "BinaryClassificationEvaluator",
+    "evaluator": {"operator": "BinaryClassificationEvaluator"},
     "loggers": [
         {
             "operator": "TensorboardLogger",

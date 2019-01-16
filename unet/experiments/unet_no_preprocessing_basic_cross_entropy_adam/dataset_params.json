@@ -1,6 +1,0 @@
-{
-    "data_path": "/dataset/val_split_2d.h5",
-    "batch_size": [32, 256, 1],
-    "val_group": "val"
-}
-

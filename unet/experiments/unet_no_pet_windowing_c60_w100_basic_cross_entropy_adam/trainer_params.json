@@ -1,8 +1,0 @@
-{
-    "train_op": {
-        "operator": "AdamOptimizer",
-        "arguments": {
-            "learning_rate": 0.0001
-        }
-    }
-}
