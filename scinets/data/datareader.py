@@ -80,7 +80,7 @@ class BaseReader(ABC):
     @staticmethod
     def _get_preprocessor(preprocessor):
         if preprocessor is None:
-            return preprocessing.Preprocessor()
+            return get_preprocessor("Preprocessor")()
         elif isinstance(preprocessor, dict):
             operator = preprocessor["operator"]
             kwargs = preprocessor.get("arguments", {})
@@ -205,7 +205,7 @@ class HDFReader(BaseReader):
         return self._data_shape
 
     def get_shapes(self):
-        with h5py.File(self.data_path) as h5:
+        with h5py.File(self.data_path, 'r') as h5:
             g = h5[self.group]
             _len = g[self.data_name].shape[0]
             h5_shape = self._get_hdf5_dataset_shape(g, self.data_name)
