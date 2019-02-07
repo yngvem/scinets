@@ -1,96 +1,308 @@
 import tensorflow as tf
-from scinets.utils.experiment import NetworkExperiment, MNISTExperiment
+from scinets.utils.experiment import NetworkExperiment
 
 
 if __name__ == "__main__":
+    print("Starting experiment")
     experiment_params = {
-        "log_dir": "./logs/",
-        "name": "test_experiment",
+        "log_dir": "/home/yngve/logs/",
+        "name": "espen_test",
         "continue_old": False,
-        "num_steps": 1000,
+        "verbose": True
     }
     dataset_params = {
-        "data_path": "/home/yngve/dataset_extraction/val_split_2d.h5",
-        "batch_size": [64, 64, 1],
-        "val_group": "val",
+        "operator": "HDFDataset",
+        "arguments": {
+            "data_path": "/home/yngve/dataset_extraction/val_split_2d.h5",
+            "batch_size": [8, 8, 1],
+            "val_group": "val",
+        }
     }
-    architecture = [
-        {
-            "layer": "ResnetConv2D",
-            "scope": "resnet1",
-            "layer_params": {"out_size": 8, "k_size": 3},
-            "normalization": {"operator": "batch_normalization"},
-            "activation": {"operator": "relu"},
-        },
-        {
-            "layer": "ResnetConv2D",
-            "scope": "resnet2",
-            "layer_params": {"out_size": 16, "k_size": 3, "strides": 2},
-            "normalization": {"operator": "batch_normalization"},
-            "activation": {"operator": "relu"},
-        },
-        {
-            "layer": "ResnetConv2D",
-            "scope": "resnet3",
-            "layer_params": {"out_size": 16, "k_size": 3},
-            "normalization": {"operator": "batch_normalization"},
-            "activation": {"operator": "relu"},
-        },
-        {
-            "layer": "LinearInterpolate",
-            "scope": "upsample",
-            "layer_params": {"rate": 2},
-        },
-        {
-            "layer": "ResnetConv2D",
-            "scope": "resnet4",
-            "layer_params": {"out_size": 32, "k_size": 3, "strides": 2},
-            "normalization": {"operator": "batch_normalization"},
-            "activation": {"operator": "relu"},
-        },
-        {
-            "layer": "ResnetConv2D",
-            "scope": "resnet5",
-            "layer_params": {"out_size": 10, "k_size": 3},
-            "normalization": {"operator": "batch_normalization"},
-            "activation": {"operator": "linear"},
-        },
-        {"layer": "GlobalAveragePool", "scope": "global_average"},
-    ]
     model_params = {
-        "type": "NeuralNet",
+        "type": "UNet",
         "network_params": {
-            "loss_function": "sigmoid_cross_entropy_with_logits",
-            "loss_kwargs": {},
-            "architecture": architecture,
-            "verbose": True,
-        },
+            "loss_function": {"operator": "BinaryFBeta", "arguments": {"beta": 2}},
+            "skip_connections": [
+                ["input", "linear_upsample_2"],
+                ["conv1", "linear_upsample_1"]
+            ],
+            "architecture": [
+                    {
+                        "layer": "Conv2D",
+                        "scope": "conv1",
+                        "layer_params": {
+                            "out_size": 8,
+                            "k_size": 3,
+                            "strides": 4
+                        },
+                        "normalizer": {
+                            "operator": "BatchNormalization"
+                        },
+                        "activation": {
+                            "operator": "RElU"
+                        },
+                        "initializer": {
+                            "operator": "he_normal"
+                        },
+                        "regularizer": {
+                            "operator": "WeightDecay",
+                            "arguments": {"amount": 1}
+                        }
+                    },
+                    {
+                        "layer": "ResnetConv2D",
+                        "scope": "conv2",
+                        "layer_params": {
+                            "out_size": 8,
+                            "k_size": 3,
+                            "strides": 4
+                        },
+                        "normalizer": {
+                            "operator": "BatchNormalization"
+                        },
+                        "activation": {
+                            "operator": "RElU"
+                        },
+                        "initializer": {
+                            "operator": "he_normal"
+                        }
+                    },
+                    {
+                        "layer": "ResnetConv2D",
+                        "scope": "conv3",
+                        "layer_params": {
+                            "out_size": 8,
+                            "k_size": 3
+                        },
+                        "normalizer": {
+                            "operator": "BatchNormalization"
+                        },
+                        "activation": {
+                            "operator": "RElU"
+                        },
+                        "initializer": {
+                            "operator": "he_normal"
+                        }
+                    },
+                    {
+                        "layer": "ResnetConv2D",
+                        "scope": "conv4",
+                        "layer_params": {
+                            "out_size": 16,
+                            "k_size": 3
+                        },
+                        "normalizer": {
+                            "operator": "BatchNormalization"
+                        },
+                        "activation": {
+                            "operator": "RElU"
+                        },
+                        "initializer": {
+                            "operator": "he_normal"
+                        }
+                    },
+                    {
+                        "layer": "LinearInterpolate",
+                        "scope": "linear_upsample_1",
+                        "layer_params": {"rate": 4}
+                    },
+                    {
+                        "layer": "ResnetConv2D",
+                        "scope": "conv5",
+                        "layer_params": {
+                            "out_size": 16,
+                            "k_size": 3
+                        },
+                        "normalizer": {
+                            "operator": "BatchNormalization"
+                        },
+                        "activation": {
+                            "operator": "RElU"
+                        },
+                        "initializer": {
+                            "operator": "he_normal"
+                        }
+                    },
+                    {
+                        "layer": "LinearInterpolate",
+                        "scope": "linear_upsample_2",
+                        "layer_params": {"rate": 4}
+                    },
+                    {
+                        "layer": "ResnetConv2D",
+                        "scope": "conv6",
+                        "layer_params": {
+                            "out_size": 32,
+                            "k_size": 3
+                        },
+                        "normalizer": {
+                            "operator": "BatchNormalization"
+                        },
+                        "activation": {
+                            "operator": "RElU"
+                        },
+                        "initializer": {
+                            "operator": "he_normal"
+                        }
+                    },
+                    {
+                        "layer": "ResnetConv2D",
+                        "scope": "conv7",
+                        "layer_params": {
+                            "out_size": 1,
+                            "k_size": 3
+                        },
+                        "normalizer": {
+                            "operator": "BatchNormalization"
+                        },
+                        "activation": {
+                            "operator": "Sigmoid"
+                        },
+                        "initializer": {
+                            "operator": "he_normal"
+                        }
+                    }
+            ]
+        }
     }
 
-    trainer_params = {}
+    trainer_params = {
+        "save_step": 10,
+        "train_op": {
+            "operator": "MomentumOptimizer",
+            "arguments": {
+                "momentum": 0.9
+            }
+        },
+        "learning_rate_scheduler": {
+            "operator": "CosineDecayRestarts",
+            "arguments": {
+                "learning_rate": 0.05,
+                "first_decay_steps": 1300,
+                "t_mul": 10,
+                "m_mul": 1,
+                "alpha": 0.01
+            }
+        }
+    }
 
     log_params = {
         "val_log_frequency": 10,
-        "evaluator": "BinaryClassificationEvaluator",
-        "tb_params": {
-            "log_dicts": [
-                {"log_name": "Loss", "log_var": "loss", "log_type": "scalar"},
-                {"log_name": "Accuracy", "log_var": "accuracy", "log_type": "scalar"},
-                {"log_name": "Dice", "log_var": "dice", "log_type": "scalar"},
-                {
-                    "log_name": "Images",
-                    "log_var": "input",
-                    "log_type": "image",
-                    "log_kwargs": {"max_outputs": 1, "channel": 0},
-                },
-            ]
+        "evaluator": {
+            "operator": "BinaryClassificationEvaluator"
         },
+        "loggers": [
+            {
+                "operator": "TensorboardLogger",
+                "arguments": {
+                    "log_dicts": [
+                        {
+                            "log_name": "Loss",
+                            "log_var": "loss",
+                            "log_type": "scalar"
+                        },
+                        {
+                            "log_name": "Probability_map",
+                            "log_var":"probabilities",
+                            "log_type": "image",
+                            "log_kwargs": {"max_outputs":1}
+                        },
+                        {
+                            "log_name": "Accuracy",
+                            "log_var": "accuracy",
+                            "log_type": "scalar"
+                        },
+                        {
+                            "log_name": "Dice",
+                            "log_var": "dice",
+                            "log_type": "scalar"
+                        },
+                        {
+                            "log_name": "Mask",
+                            "log_var": "true_out",
+                            "log_type": "image",
+                            "log_kwargs": {"max_outputs":1}
+                        },
+                        {
+                            "log_name": "CT",
+                            "log_var": "input",
+                            "log_type": "image",
+                            "log_kwargs": {"max_outputs": 1,
+                                        "channel": 0}
+                        },
+                        {
+                            "log_name": "PET",
+                            "log_var": "input",
+                            "log_type": "image",
+                            "log_kwargs": {"max_outputs": 1,
+                                        "channel": 1}
+                        },
+                        {
+                            "log_name": "Probability_map",
+                            "log_var":"probabilities",
+                            "log_type": "histogram"
+                        },
+                        {
+                            "log_name": "Precision",
+                            "log_var": "precision",
+                            "log_type": "scalar"
+                        },
+                        {
+                            "log_name": "Recall",
+                            "log_var": "recall",
+                            "log_type": "scalar"
+                        },
+                        {
+                            "log_name": "true positives",
+                            "log_var": "true_positives",
+                            "log_type": "scalar"
+                        },
+                        {
+                            "log_name": "true negatives",
+                            "log_var": "true_negatives",
+                            "log_type": "scalar"
+                        }
+                    ]
+                }
+            },
+            {
+                "operator": "HDF5Logger",
+                "arguments": {
+                    "log_dicts": [
+                        {
+                            "log_name": "Loss",
+                            "log_var": "loss"
+                        },
+                        {
+                            "log_name": "Accuracy",
+                            "log_var": "accuracy"
+                        },
+                        {
+                            "log_name": "Dice",
+                            "log_var": "dice"
+                        }
+                    ]
+                }
+            },
+        ],
+        "network_tester": {
+            "metrics": ["dice", "precision", "sensitivity", "specificity", "true_positives", "true_negatives"]
+        }
     }
 
-    experiment = MNISTExperiment(
+    experiment = NetworkExperiment(
         experiment_params=experiment_params,
         model_params=model_params,
         dataset_params=dataset_params,
         trainer_params=trainer_params,
         log_params=log_params,
     )
+    experiment.train(1000)
+    best_it, result, result_std = experiment.find_best_model("val", "dice")
+    print(f'{" Final score ":=^80s}')
+    print(
+        f" Achieved a {eval_metric:s} of {result:.3f}, with a standard "
+        f"deviation of {result_std:.3f}"
+    )
+    print(f" This result was achieved at iteration {best_it}")
+    print(80 * "=")
