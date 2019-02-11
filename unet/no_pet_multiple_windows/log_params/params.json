@@ -83,7 +83,7 @@
             }
         },
         {
-            "operator": "SacredLogger":
+            "operator": "SacredLogger",
             "arguments": {
                 "log_dicts": [
                     {
