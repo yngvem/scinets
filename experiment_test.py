@@ -6,26 +6,25 @@ if __name__ == "__main__":
     print("Starting experiment")
     experiment_params = {
         "log_dir": "/home/yngve/logs/",
-        "name": "espen_test",
+        "name": "test",
         "continue_old": False,
         "verbose": True
     }
     dataset_params = {
         "operator": "HDFDataset",
         "arguments": {
-            "data_path": "/home/yngve/dataset_extraction/val_split_2d.h5",
+            "data_path": "/home/yngve/dataset_extraction/val_split_2d.h5",  
+                # Husk: i Windows, dobbel backslash, ikke enkel. e.g. C:\\users\\yngve
             "batch_size": [8, 8, 1],
-            "val_group": "val",
+            "val_group": "val", # default validation
+            "test_group": "test",
+            "train_group": "train",
         }
     }
     model_params = {
         "type": "UNet",
         "network_params": {
             "loss_function": {"operator": "BinaryFBeta", "arguments": {"beta": 2}},
-            "skip_connections": [
-                ["input", "linear_upsample_2"],
-                ["conv1", "linear_upsample_1"]
-            ],
             "architecture": [
                     {
                         "layer": "Conv2D",
@@ -162,7 +161,11 @@ if __name__ == "__main__":
                             "operator": "he_normal"
                         }
                     }
-            ]
+            ],
+            "skip_connections": [
+                ["input", "linear_upsample_2"],
+                ["conv1", "linear_upsample_1"]
+            ],
         }
     }
 
@@ -171,7 +174,8 @@ if __name__ == "__main__":
         "train_op": {
             "operator": "MomentumOptimizer",
             "arguments": {
-                "momentum": 0.9
+                "momentum": 0.9,
+                # Optional, either this or scheduler: "learning_rate": 0.001
             }
         },
         "learning_rate_scheduler": {
@@ -297,7 +301,7 @@ if __name__ == "__main__":
         trainer_params=trainer_params,
         log_params=log_params,
     )
-    experiment.train(1000)
+    experiment.train(100)
     best_it, result, result_std = experiment.find_best_model("val", "dice")
     print(f'{" Final score ":=^80s}')
     print(
