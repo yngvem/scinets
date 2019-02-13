@@ -61,12 +61,10 @@ class SmartFormatter(argparse.HelpFormatter):
         return super()._split_lines(text, width)
 
 
-
 if __name__ == "__main__":
     data_path, num_steps, name, eval_metric = parse_arguments()
     if name is None:
         name = load_json(data_path / "experiment_params.json")["name"]
-
 
     dataset_params = load_json(data_path / "dataset_params.json")
     model_params = load_json(data_path / "model_params.json")
@@ -112,5 +110,3 @@ if __name__ == "__main__":
                 f"deviation of {result_std:.3f}"
             )
         print(80 * "=")
-
-

@@ -35,9 +35,7 @@ class BaseRegister:
 
     def add_item(self, name, item):
         if name in self.register:
-            raise ValueError(
-                f"Cannot register two items with the same name"
-            )
+            raise ValueError(f"Cannot register two items with the same name")
         self.register[name] = item
 
     def remove_item(self, name):
@@ -84,6 +82,7 @@ class SubclassRegister(BaseRegister):
        * Sedan
        * SUV
     """
+
     def __init__(self, class_name):
         """
         Arguments:
@@ -115,6 +114,7 @@ class SubclassRegister(BaseRegister):
             )
 
         old_init_subclass = cls.__init_subclass__
+
         @classmethod
         def init_subclass(cls_, *args, **kwargs):
             name = cls_.__name__
@@ -133,7 +133,7 @@ class SubclassRegister(BaseRegister):
         if not self.linked:
             raise RuntimeError(
                 "The register must be linked to a base class before a subclass can be skipped."
-                )
+            )
         if not issubclass(cls, self.linked_base):
             raise ValueError(
                 f"{cls.__name__} is not a subclass of {self.linked_base.__name__}"

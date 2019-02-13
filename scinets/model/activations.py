@@ -3,7 +3,7 @@ from .._backend_utils import SubclassRegister
 import tensorflow as tf
 
 
-activation_register = SubclassRegister('activation function')
+activation_register = SubclassRegister("activation function")
 
 
 def get_activation(activation):

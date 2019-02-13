@@ -15,8 +15,8 @@ from .._backend_utils import SubclassRegister
 from abc import ABC, abstractmethod
 
 
-
 datareader_register = SubclassRegister("data reader")
+
 
 def get_datareader(datareader):
     return datareader_register.get_item(datareader)
@@ -205,7 +205,7 @@ class HDFReader(BaseReader):
         return self._data_shape
 
     def get_shapes(self):
-        with h5py.File(self.data_path, 'r') as h5:
+        with h5py.File(self.data_path, "r") as h5:
             g = h5[self.group]
             _len = g[self.data_name].shape[0]
             h5_shape = self._get_hdf5_dataset_shape(g, self.data_name)
@@ -250,4 +250,3 @@ class HDFReader(BaseReader):
             for idx in idxes:
                 image, target = self._get_input_and_target(idx, h5)
                 yield idx, image, target
-

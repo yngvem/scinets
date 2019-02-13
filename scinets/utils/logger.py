@@ -555,7 +555,12 @@ class HDF5Logger(BaseLogger):
 
 class SacredLogger(BaseLogger):
     def __init__(
-        self, evaluator, log_dicts=None, train_log_dicts=None, val_log_dicts=None, **kwargs
+        self,
+        evaluator,
+        log_dicts=None,
+        train_log_dicts=None,
+        val_log_dicts=None,
+        **kwargs,
     ):
         """Initiate a Sacred logger.
 

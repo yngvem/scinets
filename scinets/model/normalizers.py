@@ -7,7 +7,7 @@ from .._backend_utils import SubclassRegister
 import tensorflow as tf
 
 
-normalizer_register = SubclassRegister('normalizer')
+normalizer_register = SubclassRegister("normalizer")
 
 
 def get_normalizer(normalizer):
@@ -27,6 +27,6 @@ class BaseNormalizer(ABC):
 class BatchNormalization(BaseNormalizer):
     def __init__(self, training):
         self.training = training
-        
-    def _build_normalizer(self, x, name='BN'):
+
+    def _build_normalizer(self, x, name="BN"):
         return tf.layers.batch_normalization(x, training=self.training, name=name)

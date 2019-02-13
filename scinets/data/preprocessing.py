@@ -12,7 +12,9 @@ from .._backend_utils import SubclassRegister
 from abc import ABC, abstractmethod
 
 
-preprocessor_register = SubclassRegister('Preprocessor')
+preprocessor_register = SubclassRegister("Preprocessor")
+
+
 def get_preprocessor(preprocessor):
     return preprocessor_register.get_item(preprocessor)
 
@@ -36,7 +38,6 @@ class BasePreprocessor(ABC):
         """The number of output channels as a function of input channels.
         """
         pass
-
 
 
 class Preprocessor(BasePreprocessor):
@@ -96,6 +97,7 @@ class PreprocessingPipeline(Preprocessor):
 class ChannelRemoverPreprocessor(Preprocessor):
     """Used to remove a single channel from the inputs.
     """
+
     def __init__(self, channel):
         self.unwanted_channel = channel
 
