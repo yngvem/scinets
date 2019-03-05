@@ -222,7 +222,7 @@ class NetworkExperiment:
 
     def _val_logs(self, session):
         """Returns the validation summary operators."""
-        val_ops = {logger: logger.train_summary_op for logger in self.loggers}
+        val_ops = {logger: logger.val_summary_op for logger in self.loggers}
 
         return session.run(val_ops, feed_dict={self.model.is_training: False})
 
