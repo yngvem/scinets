@@ -32,12 +32,12 @@ class BaseModel(ABC):
         input_var : tf.Variable
             The input variable to the network
         architecture : array_like
-            An array of dictionaries. The first dictionary specifies the 
-            parameters of the first layer, the second dictionary specifies the 
+            An array of dictionaries. The first dictionary specifies the
+            parameters of the first layer, the second dictionary specifies the
             parameters of the second layer and so on.
         is_training : tf.placeholder(bool, []) (optional)
-            Variable used to specify wether the net is training or not. For 
-            example used in batch normalisation and stochastic depth. 
+            Variable used to specify wether the net is training or not. For
+            example used in batch normalisation and stochastic depth.
             A placeholder will be generated for this if it is not provided.
         true_out : tf.Variable
             The wanted output of the network for the given input.
