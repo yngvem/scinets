@@ -25,12 +25,12 @@ class Linear(BaseActivation):
         return x
 
 
-class RElU(BaseActivation):
+class ReLU(BaseActivation):
     def _build_activation(self, x):
         return tf.nn.relu(x)
 
 
-class LeakyRElU(BaseActivation):
+class LeakyReLU(BaseActivation):
     def __init__(self, alpha=0.2):
         self.alpha = alpha
 

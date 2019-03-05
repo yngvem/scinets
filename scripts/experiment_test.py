@@ -31,7 +31,7 @@ if __name__ == "__main__":
                     "scope": "conv1",
                     "layer_params": {"out_size": 8, "k_size": 3, "strides": 4},
                     "normalizer": {"operator": "BatchNormalization"},
-                    "activation": {"operator": "RElU"},
+                    "activation": {"operator": "ReLU"},
                     "initializer": {"operator": "he_normal"},
                     "regularizer": {
                         "operator": "WeightDecay",
@@ -43,7 +43,7 @@ if __name__ == "__main__":
                     "scope": "conv2",
                     "layer_params": {"out_size": 8, "k_size": 3, "strides": 4},
                     "normalizer": {"operator": "BatchNormalization"},
-                    "activation": {"operator": "RElU"},
+                    "activation": {"operator": "ReLU"},
                     "initializer": {"operator": "he_normal"},
                 },
                 {
@@ -51,7 +51,7 @@ if __name__ == "__main__":
                     "scope": "conv3",
                     "layer_params": {"out_size": 8, "k_size": 3},
                     "normalizer": {"operator": "BatchNormalization"},
-                    "activation": {"operator": "RElU"},
+                    "activation": {"operator": "ReLU"},
                     "initializer": {"operator": "he_normal"},
                 },
                 {
@@ -59,7 +59,7 @@ if __name__ == "__main__":
                     "scope": "conv4",
                     "layer_params": {"out_size": 16, "k_size": 3},
                     "normalizer": {"operator": "BatchNormalization"},
-                    "activation": {"operator": "RElU"},
+                    "activation": {"operator": "ReLU"},
                     "initializer": {"operator": "he_normal"},
                 },
                 {
@@ -72,7 +72,7 @@ if __name__ == "__main__":
                     "scope": "conv5",
                     "layer_params": {"out_size": 16, "k_size": 3},
                     "normalizer": {"operator": "BatchNormalization"},
-                    "activation": {"operator": "RElU"},
+                    "activation": {"operator": "ReLU"},
                     "initializer": {"operator": "he_normal"},
                 },
                 {
@@ -85,7 +85,7 @@ if __name__ == "__main__":
                     "scope": "conv6",
                     "layer_params": {"out_size": 32, "k_size": 3},
                     "normalizer": {"operator": "BatchNormalization"},
-                    "activation": {"operator": "RElU"},
+                    "activation": {"operator": "ReLU"},
                     "initializer": {"operator": "he_normal"},
                 },
                 {

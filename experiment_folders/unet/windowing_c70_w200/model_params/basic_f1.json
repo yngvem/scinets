@@ -21,7 +21,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -38,7 +38,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -62,7 +62,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -79,7 +79,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -103,7 +103,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -120,7 +120,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -144,7 +144,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -161,7 +161,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -185,7 +185,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -202,7 +202,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -219,7 +219,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -236,7 +236,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -253,7 +253,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -270,7 +270,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -287,7 +287,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -304,7 +304,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -321,7 +321,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -338,7 +338,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -355,7 +355,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -372,7 +372,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -389,7 +389,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
@@ -406,7 +406,7 @@
                         "operator": "BatchNormalization"
                     },
                     "activation": {
-                        "operator": "RElU"
+                        "operator": "ReLU"
                     },
                     "initializer": {
                         "operator": "he_normal"
