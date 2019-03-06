@@ -1,8 +1,9 @@
 {
-    "save_step": 10,
+    "save_step": 2,
     "train_op": {
         "operator": "MomentumOptimizer",
         "arguments": {
+            "momentum": 0.9
         }
     },
     "learning_rate_scheduler": {

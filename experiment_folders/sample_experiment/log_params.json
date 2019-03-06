@@ -1,5 +1,5 @@
 {
-    "val_log_frequency": 10,
+    "val_log_frequency": 1,
     "evaluator": {
         "operator": "BinaryClassificationEvaluator"
     },
