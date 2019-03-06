@@ -6,6 +6,7 @@ __author__ = "Yngve Mardal Moe"
 __email__ = "yngve.m.moe@gmail.com"
 
 
+import itertools
 import tensorflow as tf
 import numpy as np
 import h5py
@@ -188,10 +189,10 @@ class NetworkTester:
         dataset_type : str
             Used to decide which dataset to use, must be `train`, `val`
             or `test`.
-        
+
         Returns:
         --------
-        dict : 
+        dict :
             The feed dict to use when running the performance metrics.
         """
         if dataset == "train":
@@ -203,18 +204,14 @@ class NetworkTester:
         else:
             raise ValueError("`dataset` must be either `train`, `val` or `test`")
 
-    @staticmethod
-    def _join_performance_metric(performances, metric):
-        return np.concatenate([batch[metric] for batch in performances], axis=0)
-
     def _compute_performances(self, performances, metric):
-        performances = self._join_performance_metric(performances, metric)
-        return performances.mean(), performances.std(ddof=1)
+        # performances = self._join_performance_metric(performInes, metric)
+        return performances[metric].mean(), performances[metric].std(ddof=1)
 
     def _create_performance_dict(self, performances):
         return {
             metric: self._compute_performances(performances, metric)
-            for metric in performances[0]
+            for metric in performances
         }
 
     def test_model(self, dataset_type, sess):
@@ -223,14 +220,14 @@ class NetworkTester:
         Arguments:
         ----------
         dataset_type : str
-            Specifies which dataset to use, should be equal to `train`, 
+            Specifies which dataset to use, should be equal to `train`,
             `val`, or `test`
         sess : tensorflow.Session
             The specified tensorflow session to use. All variables must be
             initialised beforehand.
         Returns:
         --------
-        dict : 
+        dict :
             Dictionary specifying the average and standard deviation of all
             specified performance metrics. The keys are the metric names
             and the values are tuples where the first element is the mean
@@ -239,20 +236,26 @@ class NetworkTester:
         feed_dict = self.get_feed_dict(dataset_type)
         num_its = self.get_numits(dataset_type)
         dataset = self.get_dataset(dataset_type)
+        print(len(dataset))
 
         performances = []
         for i in range(num_its):
             performances.append(sess.run(self.performance_ops, feed_dict=feed_dict))
-        performances = performances[: len(dataset)]
 
-        return self._create_performance_dict(performances)
+        performance_dict = {}
+        for metric in self.metrics:
+            performance_dict[metric] = np.array(list(
+                itertools.chain(*[performance[metric] for performance in performances])
+            ))
+            performance_dict[metric] = performance_dict[metric][: len(dataset)]
+
+        return self._create_performance_dict(performance_dict)
 
     def _init_output_file(self, dataset_type, filename):
         """Initiate a dataset output file.
         """
         dataset = self.get_dataset(dataset_type)
         data_len = len(dataset)
-        hdf_datareader = getattr(self.dataset, f"{dataset_type}_data_reader")
 
         with h5py.File(filename, "w") as h5:
             data_group = h5.create_group(dataset_type)
@@ -294,9 +297,6 @@ class NetworkTester:
             group[output_type][prev_length:new_length] = outputs[output_type]
 
     def save_outputs(self, dataset_type, filename, sess, save_probabilities=False):
-        dataset = self.get_dataset(dataset_type)
-        data_len = len(dataset)
-        batch_size = dataset.batch_size
         num_its = self.get_numits(dataset_type)
         feed_dict = self.get_feed_dict(dataset_type)
 

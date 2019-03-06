@@ -1,6 +1,4 @@
-import numpy as np
 import tensorflow as tf
-import sacred
 from pathlib import Path
 from operator import itemgetter
 from tqdm import trange
@@ -111,6 +109,9 @@ class NetworkExperiment:
         self.loggers = self._get_loggers(log_params["loggers"])
         self.network_tester = self._get_network_tester(log_params["network_tester"])
 
+        # Logger kwargs
+        self.logger_kwargs = {}
+
     def _get_continue_old(self, experiment_params):
         """Extract whether an old experiment should be continued.
         """
@@ -191,20 +192,18 @@ class NetworkExperiment:
         )
 
     def _init_session(
-        self, session, logger_kwargs=None, continue_old=None, step_num=None
+        self, session, continue_old=None, step_num=None
     ):
         """Initialise the session. Must be run before any training iterations.
         """
         if continue_old is None:
             continue_old = self.continue_old
-        if logger_kwargs is None:
-            logger_kwargs = {}
 
         session.run([tf.global_variables_initializer(), self.dataset.initializers])
         if continue_old:
             self.trainer.load_state(session, step_num=step_num)
         for logger in self.loggers:
-            logger.init_logging(session=session, **logger_kwargs)
+            logger.init_logging(session=session, **self.logger_kwargs)
 
     def _train_steps(self, session):
         """Perform `self.val_interval` train steps and return summaries and it_nums.
@@ -240,16 +239,20 @@ class NetworkExperiment:
     def train(self, num_steps, init_logger_kwargs=None):
         """Train the specified model for the given number of steps.
         """
+        if init_logger_kwargs is None:
+            init_logger_kwargs = {}
+        self.logger_kwargs = init_logger_kwargs
+
         iterator = trange if self.verbose else range
         num_vals = num_steps // self.val_interval
         with tf.Session() as session:
-            self._init_session(session, logger_kwargs=init_logger_kwargs)
+            self._init_session(session,)
             for i in iterator(num_vals):
                 self._train_its(session)
 
-    def evaluate_model(self, dataset_type, step_num=None):
+    def evaluate_model(self, dataset_type, step_num=None,):
         with tf.Session() as session:
-            self._init_session(session, continue_old=True, step_num=step_num)
+            self._init_session(session, continue_old=True, step_num=step_num,)
             return self.network_tester.test_model(dataset_type, session)
 
     def get_all_checkpoint_its(self):
@@ -314,10 +317,14 @@ class NetworkExperiment:
         )
         return best_it, performance, std
 
-    def save_outputs(self, dataset_type, filename, step_num):
+    def save_outputs(self, dataset_type, filename, step_num,):
         filename = self.log_dir / self.name / f"{filename}_{step_num}.h5"
         with tf.Session() as session:
-            self._init_session(session, continue_old=True, step_num=step_num)
+            self._init_session(
+                session,
+                continue_old=True,
+                step_num=step_num,
+            )
             self.network_tester.save_outputs(dataset_type, filename, session)
 
 
