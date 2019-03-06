@@ -1,4 +1,3 @@
-import tensorflow as tf
 from scinets.utils.experiment import NetworkExperiment
 
 
@@ -226,8 +225,7 @@ if __name__ == "__main__":
     best_it, result, result_std = experiment.find_best_model("val", "dice")
     print(f'{" Final score ":=^80s}')
     print(
-        f" Achieved a {eval_metric:s} of {result:.3f}, with a standard "
+        f" Achieved a dice of {result:.3f}, with a standard "
         f"deviation of {result_std:.3f}"
     )
     print(f" This result was achieved at iteration {best_it}")
-    print(80 * "=")

@@ -1,6 +1,4 @@
 # Builtin imports
-from pprint import pprint
-import sys
 from pathlib import Path
 import argparse
 
@@ -114,11 +112,13 @@ if __name__ == "__main__":
                     "The final evaluation metric must be a "
                     "parameter of the network evaluator."
                 )
-
-        experiment.train(num_steps, init_logger_kwargs={"_run": _run})
+        init_logger_kwargs = {"_run": _run}
+        experiment.train(num_steps, init_logger_kwargs=init_logger_kwargs)
 
         if eval_metric is not None:
-            best_it, result, result_std = experiment.find_best_model("val", eval_metric)
+            best_it, result, result_std = experiment.find_best_model(
+                "val", eval_metric,
+            )
             print(f'{" Final score ":=^80s}')
             print(
                 f" Achieved a {eval_metric:s} of {result:.3f}, with a standard "
@@ -128,7 +128,9 @@ if __name__ == "__main__":
             print(80 * "=")
             final_result = result
 
-            evaluation_results = experiment.evaluate_model("val", best_it)
+            evaluation_results = experiment.evaluate_model(
+                "val", best_it,
+            )
             print(f'{" All evaluation metrics at best iteration ":=^80s}')
             for metric, (result, result_std) in evaluation_results.items():
                 print(
